@@ -85,6 +85,7 @@ select { font-family: var(--body); font-size: 16px; border: 2px solid var(--wood
         <h2>สร้างรหัสเข้าใช้งาน</h2>
         <p class="muted">ลูกค้าเข้าเกมที่ลิงก์เดียว แล้วกรอกรหัสนี้ตอนลงทะเบียน รหัสบอกช่องทางขายให้อัตโนมัติ · 1 รหัส = 1 ลูกค้า (หรือตั้งให้ใช้ได้หลายคนสำหรับโพสต์/บรอดแคสต์)</p>
         <div class="gen">
+          <label>ประเภทรหัส<select id="gRole"><option value="player">ลูกค้า</option><option value="tester">ทีมงานทดสอบ (QA)</option><option value="gm">GM / Host (ปลดล็อกทุกอย่าง)</option></select></label>
           <label>ช่องทาง<select id="gChannel"></select></label>
           <label>จำนวนรหัส<input id="gCount" type="number" min="1" max="500" value="20" inputmode="numeric"></label>
           <label>ใช้ได้ต่อรหัส (คน)<input id="gUses" type="number" min="1" max="100000" value="1" inputmode="numeric"></label>
@@ -105,6 +106,15 @@ select { font-family: var(--body); font-size: 16px; border: 2px solid var(--wood
         <p class="muted" style="margin-top:8px">ส่งในแชทแบบกดครั้งเดียวเข้าได้เลย: ใช้ลิงก์ <code>?code=รหัส</code> ระบบกรอกรหัสให้อัตโนมัติ</p>
       </section>
       <section class="card">
+        <h2>ลูกค้าลืมรหัสผ่าน</h2>
+        <p class="muted">ลูกค้าส่ง USER ID มา ค้นหาแล้วถามยืนยันชื่อ + 4 ตัวท้ายเบอร์ก่อน จึงกดออกรหัสผ่านชั่วคราว ส่งให้ลูกค้าทางแชท ลูกค้าเข้าด้วยรหัสนั้นแล้วระบบจะบังคับตั้งรหัสใหม่ (ระบบเก็บรหัสแบบเข้ารหัส จึงดูรหัสเดิมไม่ได้)</p>
+        <div class="row"><input id="fUser" placeholder="USER ID ที่ลูกค้าแจ้ง" autocapitalize="none" spellcheck="false"><button class="btn ghost" id="fFind">ค้นหา</button></div>
+        <div id="fOut"></div>
+        <p class="msg" id="fMsg" role="status"></p>
+      </section>
+    </div>
+    <div class="grid2" style="margin-top:14px">
+      <section class="card">
         <h2>สรุปรหัสตามช่องทาง</h2>
         <div class="chans" id="chans"></div>
       </section>
@@ -112,12 +122,12 @@ select { font-family: var(--body); font-size: 16px; border: 2px solid var(--wood
     <section class="card" style="margin-top:14px">
       <div class="row" style="flex-wrap:wrap;margin-bottom:8px">
         <h2 style="margin:0 auto 0 0">ผู้เล่น</h2>
-        <input id="q" placeholder="ค้นชื่อ เบอร์ หรือ LINE ID" style="max-width:260px">
+        <input id="q" placeholder="ค้น USER ID ชื่อ เบอร์ หรือ LINE ID" style="max-width:260px">
         <button class="btn ghost" id="csvOpt">CSV ผู้ยินยอมรับข่าวสาร</button>
         <button class="btn ghost" id="csvAll">CSV ทั้งหมด</button>
         <button class="btn ghost" id="reload">รีเฟรช</button>
       </div>
-      <p class="muted">"ลูกค้าเดิม" = เบอร์นี้มีในฐานลูกค้า ERP แล้ว · ส่งโปรโมชั่นได้เฉพาะคนที่ยินยอมรับข่าวสาร (PDPA)</p>
+      <p class="muted">"ลูกค้าเดิม" = เบอร์นี้มีในฐานลูกค้า ERP แล้ว · ส่งโปรโมชั่นได้เฉพาะคนที่ยินยอมรับข่าวสาร (PDPA) <span id="teamNote"></span></p>
       <div class="tablewrap"><table><thead><tr><th>ลูกค้า</th><th>ช่องทาง</th><th>เลเวล</th><th>คูปอง</th><th>รับข่าวสาร</th><th>ลงทะเบียน</th><th>เล่นล่าสุด</th></tr></thead><tbody id="rows"></tbody></table></div>
     </section>
   </div>
@@ -157,7 +167,9 @@ async function load() {
   }
 }
 function render() {
-  const P = DATA.players, Rw = DATA.rewards, now = Date.now(), wk = 7 * 864e5;
+  const ALL = DATA.players, now = Date.now(), wk = 7 * 864e5;
+  // Team accounts (GM / tester) and their test coupons never count toward customer stats.
+  const P = ALL.filter(p => (p.role || 'player') === 'player'), Rw = DATA.rewards.filter(r => !r.is_test);
   const byP = new Map(); Rw.forEach(r => byP.set(r.player_id, [...(byP.get(r.player_id) || []), r]));
   const stats = [
     ['ผู้เล่นทั้งหมด', P.length, 'ใหม่ 7 วัน ' + P.filter(p => now - new Date(p.created_at) < wk).length + ' คน'],
@@ -169,20 +181,22 @@ function render() {
   $('stats').innerHTML = stats.map(([l, v, s]) => `<div class="card stat"><span>${l}</span><b>${v.toLocaleString('th-TH')}</b><span>${s}</span></div>`).join('');
   const AC = DATA.accessCodes || [];
   const rowsCh = Object.keys(CH).map(k => {
-    const codes = AC.filter(c => c.channel === k);
+    const codes = AC.filter(c => c.channel === k && (c.role || 'player') === 'player');
     return { k, made: codes.length, used: codes.reduce((a, c) => a + c.uses, 0), players: P.filter(p => p.channel === k).length };
   }).filter(r => r.made || r.players);
   const max = Math.max(1, ...rowsCh.map(r => r.players));
   $('chans').innerHTML = rowsCh.length ? rowsCh.map(r => `<div><b>${CH[r.k]}</b> <span class="muted">· ผู้เล่น ${r.players} คน · สร้างรหัส ${r.made} · ถูกใช้ ${r.used} ครั้ง</span><div class="bar"><i style="width:${r.players / max * 100}%"></i></div></div>`).join('')
     : '<p class="muted">ยังไม่มีรหัส — สร้างชุดแรกที่ช่อง "สร้างรหัสเข้าใช้งาน"</p>';
   const q = $('q').value.trim().toLowerCase();
-  const list = P.filter(p => !q || [p.display_name, p.phone, p.line_id || ''].some(v => v.toLowerCase().includes(q))).slice(0, 300);
+  const team = ALL.length - P.length;
+  const list = ALL.filter(p => !q || [p.username || '', p.display_name, p.phone, p.line_id || ''].some(v => v.toLowerCase().includes(q))).slice(0, 300);
   $('rows').innerHTML = list.length ? list.map(p => `<tr>
-    <td><b>${esc(p.display_name)}</b>${p.is_customer ? ' <span class="pill ok">ลูกค้าเดิม</span>' : ''}<div class="muted">${esc(p.phone)}${p.line_id ? ' · LINE ' + esc(p.line_id) : ''}</div></td>
+    <td><b>${esc(p.display_name)}</b>${p.role === 'gm' ? ' <span class="pill" style="color:#7b3fa8">GM</span>' : p.role === 'tester' ? ' <span class="pill" style="color:#3d6fb0">ทีมงาน</span>' : ''}${p.is_customer ? ' <span class="pill ok">ลูกค้าเดิม</span>' : ''}<div class="muted">USER ID: ${p.username ? '<b>' + esc(p.username) + '</b>' : 'ยังไม่ได้ตั้ง'} · ${esc(p.phone)}${p.line_id ? ' · LINE ' + esc(p.line_id) : ''}</div></td>
     <td>${esc(CH[p.channel] || p.channel)}</td><td class="n">${p.level}</td>
     <td>${(byP.get(p.id) || []).map(r => { const [l, c] = couponState(r); return `<span class="pill ${c}" title="${esc(r.discount_label)} · ${l}">${esc(r.code)}</span>`; }).join(' ') || '<span class="muted">—</span>'}</td>
     <td>${p.consent_marketing ? 'ยินยอม' : '—'}</td><td>${fmtD(p.created_at)}</td><td>${fmtDT(p.last_seen_at)}</td></tr>`).join('')
     : '<tr><td colspan="7" class="muted" style="text-align:center;padding:24px">ยังไม่มีผู้เล่น — ส่งลิงก์ด้านบนให้ลูกค้าคนแรก แล้วรายชื่อจะขึ้นที่นี่</td></tr>';
+  $('teamNote').textContent = team ? 'บัญชีทีมงาน/GM ' + team + ' บัญชี แสดงในตารางแต่ไม่นับในสถิติด้านบน' : '';
   lookup();
 }
 function lookup() {
@@ -200,13 +214,38 @@ const qr = s => 'https://api.qrserver.com/v1/create-qr-code/?size=' + s + '&marg
 $('qrImg').src = qr('120x120'); $('qrBig').href = qr('800x800');
 $('copyUrl').dataset.copy = playUrl;
 $('gChannel').innerHTML = Object.entries(CH).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
+$('gRole').addEventListener('change', () => {
+  const team = $('gRole').value !== 'player';
+  $('gChannel').disabled = team;
+  if (team) { $('gCount').value = 1; $('gUses').value = 20; } else { $('gCount').value = 20; $('gUses').value = 1; }
+});
+let foundUser = '';
+$('fFind').addEventListener('click', async () => {
+  const msg = $('fMsg'); msg.className = 'msg'; msg.textContent = 'กำลังค้นหา…'; $('fOut').innerHTML = ''; foundUser = '';
+  try {
+    const d = await call({ op: 'lookup', username: $('fUser').value.trim() });
+    const p = d.player; foundUser = p.username; msg.textContent = '';
+    $('fOut').innerHTML = `<div class="found"><div><b>USER ID: ${esc(p.username)}</b></div><div>ชื่อ ${esc(p.display_name)} · เบอร์ลงท้าย <b>${esc(p.phoneLast4)}</b>${p.line_id ? ' · LINE ' + esc(p.line_id) : ''} · Lv ${p.level}</div>
+      <div class="muted">ถามลูกค้าให้ยืนยันชื่อและ 4 ตัวท้ายเบอร์ให้ตรงก่อน</div><button class="btn" id="fReset" style="margin-top:8px">ออกรหัสผ่านชั่วคราว</button></div>`;
+  } catch (e) { msg.className = 'msg bad'; msg.textContent = e.message; }
+});
+document.addEventListener('click', async e => {
+  if (!e.target.closest('#fReset') || !foundUser) return;
+  const btn = e.target.closest('#fReset'), msg = $('fMsg'); btn.disabled = true; msg.className = 'msg'; msg.textContent = 'กำลังออกรหัส…';
+  try {
+    const d = await call({ op: 'resetpw', username: foundUser });
+    msg.className = 'msg ok';
+    msg.innerHTML = 'รหัสผ่านชั่วคราวของ <b>' + esc(d.player.username) + '</b>: <span class="code" style="user-select:all">' + esc(d.tempPassword) + '</span><br>ส่งให้ลูกค้าทางแชท ลูกค้าเข้าด้วยรหัสนี้แล้วระบบจะให้ตั้งรหัสใหม่ทันที (รหัสนี้แสดงครั้งเดียว)';
+  } catch (er) { msg.className = 'msg bad'; msg.textContent = er.message; btn.disabled = false; }
+});
 let lastCodes = [];
 $('gGo').addEventListener('click', async () => {
   const btn = $('gGo'), msg = $('gMsg'); btn.disabled = true; msg.className = 'msg'; msg.textContent = 'กำลังสร้างรหัส…';
   try {
-    const d = await call({ op: 'gencodes', channel: $('gChannel').value, count: +$('gCount').value || 1, maxUses: +$('gUses').value || 1, batch: $('gBatch').value.trim() });
+    const d = await call({ op: 'gencodes', role: $('gRole').value, channel: $('gChannel').value, count: +$('gCount').value || 1, maxUses: +$('gUses').value || 1, batch: $('gBatch').value.trim() });
     lastCodes = d.codes;
-    msg.className = 'msg ok'; msg.textContent = 'สร้าง ' + d.codes.length + ' รหัส · ' + CH[d.channel] + ' · ใช้ได้รหัสละ ' + d.maxUses + ' คน';
+    const roleName = { player: CH[d.channel], tester: 'ทีมงานทดสอบ', gm: 'GM / Host' }[d.role || 'player'];
+    msg.className = 'msg ok'; msg.textContent = 'สร้าง ' + d.codes.length + ' รหัส · ' + roleName + ' · ใช้ได้รหัสละ ' + d.maxUses + ' คน';
     $('gList').innerHTML = d.codes.map(c => '<span>' + esc(c) + '</span>').join(''); $('gOut').hidden = false;
     load();
   } catch (e) { msg.className = 'msg bad'; msg.textContent = e.message; }
@@ -241,8 +280,8 @@ document.addEventListener('click', async e => {
 function csv(onlyOpt) {
   const byP = new Map(); DATA.rewards.forEach(r => byP.set(r.player_id, [...(byP.get(r.player_id) || []), r.code]));
   const cell = v => { const s = String(v ?? ''); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
-  const head = ['ชื่อ', 'เบอร์โทร', 'LINE ID', 'ช่องทาง', 'ลูกค้าเดิม', 'เลเวล', 'ยินยอมรับข่าวสาร', 'คูปอง', 'ลงทะเบียน', 'เล่นล่าสุด'];
-  const lines = DATA.players.filter(p => !onlyOpt || p.consent_marketing).map(p => [p.display_name, p.phone, p.line_id, CH[p.channel] || p.channel, p.is_customer ? 'ใช่' : 'ไม่', p.level, p.consent_marketing ? 'ใช่' : 'ไม่', (byP.get(p.id) || []).join(' '), p.created_at, p.last_seen_at].map(cell).join(','));
+  const head = ['USER ID', 'ชื่อ', 'เบอร์โทร', 'LINE ID', 'ช่องทาง', 'ลูกค้าเดิม', 'เลเวล', 'ยินยอมรับข่าวสาร', 'คูปอง', 'ลงทะเบียน', 'เล่นล่าสุด'];
+  const lines = DATA.players.filter(p => (p.role || 'player') === 'player' && (!onlyOpt || p.consent_marketing)).map(p => [p.username || '', p.display_name, p.phone, p.line_id, CH[p.channel] || p.channel, p.is_customer ? 'ใช่' : 'ไม่', p.level, p.consent_marketing ? 'ใช่' : 'ไม่', (byP.get(p.id) || []).join(' '), p.created_at, p.last_seen_at].map(cell).join(','));
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob(['﻿' + [head.join(','), ...lines].join('\n')], { type: 'text/csv;charset=utf-8' }));
   a.download = 'garden-players' + (onlyOpt ? '-optin' : '') + '-' + new Date().toISOString().slice(0, 10) + '.csv';

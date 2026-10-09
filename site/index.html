@@ -196,6 +196,11 @@ input, select, textarea, .code { -webkit-user-select: text; user-select: text; -
 .cprow .meta small { color: var(--muted); }
 .cprow .code { font-family: var(--display); font-size: 18px; letter-spacing: .05em; }
 .chip.cp { cursor: pointer; background: #fff1c7; font-size: 15px; }
+.chip.acct { background: #e6f2d8; }
+.chip.test { background: #e9ddfb; }
+.pw { display: flex; gap: 6px; }
+.pw input { flex: 1; min-width: 0; }
+.pw .eye { font-size: 13px; padding: 4px 10px; }
 .chip.cp:focus-visible { outline: 3px solid var(--water); outline-offset: 2px; }
 .btn {
   font-family: var(--display); font-size: 15px; color: var(--ink); cursor: pointer;
@@ -229,6 +234,8 @@ input, select, textarea, .code { -webkit-user-select: text; user-select: text; -
         วันที่ <span id="day">1</span>
       </div>
       <button class="chip cp" id="couponChip" type="button">คูปอง <span id="couponNext"></span></button>
+      <button class="chip cp acct" id="acctChip" type="button" hidden></button>
+      <button class="chip cp test" id="testChip" type="button" hidden>แผงทดสอบ</button>
       <div class="chip rain" id="rainChip" hidden>ฝนตก · รดน้ำให้ฟรี</div>
     </div>
   </header>
@@ -1845,7 +1852,7 @@ function hud() {
 /* ================= modals ================= */
 let modalKind = '', marketTab = 'seed';
 function openModal(kind, html) { modalKind = kind; $('modal').innerHTML = html; $('veil').hidden = false; paintIcons(); }
-function closeModal(force) { if (modalKind === 'register' && force !== true) return; $('veil').hidden = true; modalKind = ''; }
+function closeModal(force) { if ((modalKind === 'auth' || modalKind === 'setup') && force !== true) return; $('veil').hidden = true; modalKind = ''; }
 $('veil').addEventListener('click', e => { if (e.target.id === 'veil') closeModal(); });
 function openMarket(tab) { marketTab = tab || (S.mode === 'pond' ? 'fry' : 'seed'); renderMarket(); }
 function priceToday(id) { return Math.round(ITEM[id].price * S.market[id]); }
@@ -2078,18 +2085,24 @@ function renderQuests() {
   $('qstreak').innerHTML = Array.from({ length: QUEST_DAILY }, (_, k) => '<i class="' + (k < S.qDone ? 'on' : '') + '"></i>').join('') + (S.qBonus ? ' ได้โบนัสวันนี้แล้ว' : ' ครบ ' + QUEST_DAILY + ' รับโบนัส');
 }
 
-/* ================= customer account + coupons ================= */
-// Players register (name, phone, LINE) before playing; reaching milestone levels earns a
-// coupon issued by the server (app/api/public/garden/route.ts). Milestones come from the
-// server so the shop edits them in one place (lib/garden/config.ts).
+/* ================= accounts + cloud save + coupons ================= */
+// Online-game style accounts, backed by the Supabase Edge Function `garden`
+// (supabase/functions/garden/index.ts):
+//   new customer: access code from the store + name/phone/consent → forced to pick USER ID + password
+//   later / other devices: USER ID + password → the farm is restored from the cloud save
+//   forgot password: send USER ID to admin → admin issues a temporary password → forced to change it
+// Team codes: role 'gm' starts with everything unlocked; 'gm' and 'tester' get a test panel and test
+// coupons (labelled "ทดสอบ") without the waiting time. Milestones come from the server.
 const SHOP_NAME = 'ZANA', API = 'https://gxycxjksrzjzxzgbblup.supabase.co/functions/v1/garden', PKEY = 'zana-garden-player';
 const DEFAULT_MILESTONES = [{ level: 3, label: 'ส่วนลด 5%' }, { level: 5, label: 'ส่วนลด 10%' }, { level: 8, label: 'ส่วนลด 15%' }];
-let PL = { token: null, name: '', milestones: [], demo: false };
-try { const s = JSON.parse(localStorage.getItem(PKEY)); if (s && s.token) PL = { ...PL, ...s }; } catch (_) {}
+let PL = { token: null, name: '', username: '', role: 'player', milestones: [], demo: false, lastUser: '' };
+try { const s = JSON.parse(localStorage.getItem(PKEY)); if (s) PL = { ...PL, ...s, demo: false }; } catch (_) {}
 const qp = k => { try { return new URLSearchParams(location.search).get(k) || ''; } catch (_) { return ''; } };
 const codeParam = qp('code').toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 20);
 const claiming = {}, waitNoted = {};
-function savePlayer() { try { localStorage.setItem(PKEY, JSON.stringify({ token: PL.token, name: PL.name, milestones: PL.milestones })); } catch (_) {} }
+let TIME_SCALE = 1;
+const isTeam = () => PL.token && (PL.role === 'gm' || PL.role === 'tester');
+function savePlayer() { try { localStorage.setItem(PKEY, JSON.stringify({ token: PL.token, name: PL.name, username: PL.username, role: PL.role, milestones: PL.milestones, lastUser: PL.username || PL.lastUser })); } catch (_) {} }
 const esc = v => String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const ms = () => (PL.milestones.length ? PL.milestones : DEFAULT_MILESTONES);
 async function api(action, data, keepalive) {
@@ -2101,14 +2114,28 @@ async function api(action, data, keepalive) {
   return body;
 }
 const progress = () => ({ level: S.level, harvested: S.harvested, playSeconds: Math.round(S.playSec || 0) });
-function applySnapshot(d) { if (d.milestones) PL.milestones = d.milestones; if (d.player) PL.name = d.player.name; savePlayer(); renderCouponChip(); }
-function lostSession() { PL.token = null; savePlayer(); openRegister('เซสชันหมดอายุ กรุณายืนยันเบอร์โทรอีกครั้ง ความคืบหน้าและคูปองยังอยู่ครบ'); }
-async function syncPlayer(keepalive) {
+function cloudSave() { S.farmer = { x: F.x, y: F.y }; return JSON.parse(JSON.stringify(S)); }
+function applySnapshot(d) {
+  if (d.milestones) PL.milestones = d.milestones;
+  if (d.player) { PL.name = d.player.name; PL.username = d.player.username || ''; PL.role = d.player.role || 'player'; }
+  savePlayer(); renderCouponChip(); renderAccountChips();
+  if (d.needSetup && modalKind !== 'setup') openSetup();
+}
+function adoptSave(s) {
+  if (!s || typeof s !== 'object' || !s.plots) return false;
+  s.v = 3; if (!s.mode) s.mode = 'field';
+  S = s; hudCache = ''; resetFarmer();
+  if (S.farmer) { F.x = S.farmer.x; F.y = S.farmer.y; }
+  buildBackgrounds(); setMode(S.mode, false); ensureQuests(); renderQuests(); renderTray(); hud(); save();
+  return true;
+}
+function lostSession(note) { PL.token = null; savePlayer(); renderAccountChips(); openAuth('login', note || 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบอีกครั้ง ฟาร์มและคูปองยังอยู่ครบ'); }
+async function syncPlayer(keepalive, withSave) {
   if (!PL.token) return;
-  try { applySnapshot(await api('sync', { token: PL.token, ...progress() }, keepalive)); checkMilestones(); }
+  try { applySnapshot(await api('sync', { token: PL.token, ...progress(), ...(withSave !== false ? { save: cloudSave() } : {}) }, keepalive)); checkMilestones(); }
   catch (e) { if (e.status === 401) lostSession(); }
 }
-function onLevelUp() { if (PL.token) syncPlayer(); else if (PL.demo) { const m = ms().find(x => x.level === S.level); if (m) toast('ถึงเลเวล ' + m.level + ' แล้ว · ลงทะเบียนเพื่อรับ' + m.label); } }
+function onLevelUp() { if (PL.token) syncPlayer(); else if (PL.demo) { const m = ms().find(x => x.level === S.level); if (m) toast('ถึงเลเวล ' + m.level + ' แล้ว · สมัครบัญชีเพื่อรับ' + m.label); } }
 function checkMilestones() {
   if (!PL.token) return;
   for (const m of PL.milestones) {
@@ -2136,53 +2163,177 @@ function renderCouponChip() {
   const got = ms().filter(m => m.reward).length, next = ms().find(m => !m.reward);
   $('couponNext').textContent = next ? '· Lv ' + next.level + ' → ' + next.label.replace('ส่วนลด ', '') : '· ครบ ' + got + ' ใบ';
 }
+function renderAccountChips() {
+  const a = $('acctChip'), tc = $('testChip');
+  a.hidden = !PL.token; tc.hidden = !isTeam();
+  if (PL.token) a.textContent = (PL.role === 'gm' ? 'GM · ' : PL.role === 'tester' ? 'ทีมงาน · ' : '') + (PL.username || PL.name || 'บัญชี');
+}
 const fmtTH = s => new Date(s).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
 function ladderHtml() { return '<div class="ladder">' + ms().map(m => '<span>' + esc(m.label) + '<small>ถึงเลเวล ' + m.level + '</small></span>').join('') + '</div>'; }
-function openRegister(note) {
-  openModal('register', `<h2 id="mTitle">ลงทะเบียนรับสิทธิ์เล่นฟรี</h2>
-    <p>ของแถมสำหรับลูกค้า ${SHOP_NAME} ปลูกผัก เลี้ยงปลา เก็บเลเวล แล้วรับคูปองส่วนลดสำหรับการซื้อครั้งถัดไป</p>
-    ${ladderHtml()}
-    ${note ? '<p style="color:var(--danger)">' + esc(note) + '</p>' : ''}
-    <form class="reg" id="regForm" novalidate>
-      <label class="f">รหัสเข้าใช้งาน (บนการ์ดในกล่อง หรือในแชทร้าน)<input id="rCode" maxlength="20" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="KF-XXXXXX" value="${esc(codeParam)}" style="text-transform:uppercase;letter-spacing:.06em"><small style="color:var(--muted);font-size:12px">เคยลงทะเบียนแล้ว? เว้นว่างไว้ แล้วกรอกเบอร์เดิมเพื่อเล่นต่อ</small></label>
-      <label class="f">ชื่อเล่น<input id="rName" maxlength="60" autocomplete="nickname" value="${esc(PL.name || '')}"></label>
-      <label class="f">เบอร์มือถือ (ใช้ยืนยันตอนรับส่วนลด)<input id="rPhone" inputmode="tel" autocomplete="tel" placeholder="0812345678" maxlength="16"></label>
-      <label class="f">LINE ID (ไม่บังคับ)<input id="rLine" maxlength="40" autocomplete="off"></label>
-      <label class="check"><input type="checkbox" id="rTerms"><span>ยินยอมให้ร้าน ${SHOP_NAME} เก็บชื่อ เบอร์โทร และ LINE ID เพื่อยืนยันตัวตนและมอบคูปองส่วนลดจากเกมนี้</span></label>
-      <label class="check"><input type="checkbox" id="rMkt"><span>รับข่าวสารและโปรโมชั่นจากร้านทาง LINE / SMS (ไม่บังคับ ยกเลิกได้ตลอด)</span></label>
-      <p class="err" id="rErr" role="alert"></p>
-      <button class="btn" type="submit" id="rGo">เริ่มเล่นเลย</button>
-      <div id="rDemo" hidden><p style="font-size:13px;color:var(--muted);margin:4px 0">ยังเชื่อมต่อระบบรับคูปองไม่ได้ เล่นต่อได้ แต่จะยังไม่ได้รับคูปองจนกว่าจะลงทะเบียน</p><button class="btn ghost" type="button" data-act="demo">เล่นโหมดทดลอง (ยังไม่รับคูปอง)</button></div>
+const pwField = (id, label, ac) => `<label class="f">${label}<span class="pw"><input id="${id}" type="password" maxlength="64" autocomplete="${ac}"><button type="button" class="btn ghost eye" data-act="eye" data-for="${id}" aria-label="แสดงรหัสผ่าน">แสดง</button></span></label>`;
+
+// ---- sign in / new player ----
+function openAuth(tab, note) {
+  tab = tab || (codeParam || !PL.lastUser ? 'new' : 'login');
+  const tabs = `<div class="tabs" role="tablist"><button type="button" class="btn ${tab === 'login' ? 'on' : 'ghost'}" data-act="authtab" data-tab="login">เข้าสู่ระบบ</button><button type="button" class="btn ${tab === 'new' ? 'on' : 'ghost'}" data-act="authtab" data-tab="new">ผู้เล่นใหม่ (มีรหัสจากร้าน)</button></div>`;
+  const noteHtml = note ? '<p style="color:var(--danger)">' + esc(note) + '</p>' : '';
+  const demo = `<div id="rDemo" hidden><p style="font-size:13px;color:var(--muted);margin:4px 0">ยังเชื่อมต่อระบบไม่ได้ เล่นต่อได้ แต่ความคืบหน้าจะไม่ถูกบันทึกเข้าบัญชีและยังไม่ได้คูปอง</p><button class="btn ghost" type="button" data-act="demo">เล่นโหมดทดลอง</button></div>`;
+  if (tab === 'login') {
+    openModal('auth', `<h2 id="mTitle">เข้าสู่ระบบ KidFarm</h2><p>ใช้ USER ID และรหัสผ่านที่ตั้งไว้ เข้าได้ทุกเครื่อง ฟาร์มของคุณจะตามมาด้วย</p>${tabs}${noteHtml}
+      <form class="reg" id="loginForm" novalidate>
+        <label class="f">USER ID<input id="lUser" maxlength="20" autocomplete="username" autocapitalize="none" spellcheck="false" value="${esc(PL.lastUser || '')}"></label>
+        ${pwField('lPass', 'รหัสผ่าน', 'current-password')}
+        <p class="err" id="lErr" role="alert"></p>
+        <button class="btn" type="submit" id="lGo">เข้าสู่ระบบ</button>
+        <button class="btn ghost" type="button" data-act="forgot">ลืมรหัสผ่าน?</button>
+        <p id="forgotHelp" hidden style="font-size:13px;margin:0">ส่ง <b>USER ID</b> ของคุณให้แอดมินทาง LINE หรือแชทร้าน ${SHOP_NAME} แอดมินจะตรวจสอบตัวตน (ชื่อ + 4 ตัวท้ายเบอร์) แล้วตั้งรหัสผ่านชั่วคราวให้ เข้าด้วยรหัสนั้นแล้วระบบจะให้ตั้งรหัสใหม่ทันที</p>
+        ${demo}
+      </form>`);
+  } else {
+    openModal('auth', `<h2 id="mTitle">ลงทะเบียนรับสิทธิ์เล่นฟรี</h2><p>ของแถมสำหรับลูกค้า ${SHOP_NAME} ปลูกผัก เลี้ยงปลา เก็บเลเวล แล้วรับคูปองส่วนลดสำหรับการซื้อครั้งถัดไป</p>${ladderHtml()}${tabs}${noteHtml}
+      <form class="reg" id="regForm" novalidate>
+        <label class="f">รหัสเข้าใช้งาน (บนการ์ดในกล่อง หรือในแชทร้าน)<input id="rCode" maxlength="20" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="KF-XXXXXX" value="${esc(codeParam)}" style="text-transform:uppercase;letter-spacing:.06em"></label>
+        <label class="f">ชื่อเล่น<input id="rName" maxlength="60" autocomplete="nickname"></label>
+        <label class="f">เบอร์มือถือ (ใช้ยืนยันตอนรับส่วนลด)<input id="rPhone" inputmode="tel" autocomplete="tel" placeholder="0812345678" maxlength="16"></label>
+        <label class="f">LINE ID (ไม่บังคับ)<input id="rLine" maxlength="40" autocomplete="off"></label>
+        <label class="check"><input type="checkbox" id="rTerms"><span>ยินยอมให้ร้าน ${SHOP_NAME} เก็บชื่อ เบอร์โทร และ LINE ID เพื่อยืนยันตัวตนและมอบคูปองส่วนลดจากเกมนี้</span></label>
+        <label class="check"><input type="checkbox" id="rMkt"><span>รับข่าวสารและโปรโมชั่นจากร้านทาง LINE / SMS (ไม่บังคับ ยกเลิกได้ตลอด)</span></label>
+        <p class="err" id="rErr" role="alert"></p>
+        <button class="btn" type="submit" id="rGo">ถัดไป: ตั้ง USER ID</button>
+        ${demo}
+      </form>`);
+  }
+}
+// ---- forced USER ID + password setup (first time, or after an admin reset) ----
+function openSetup() {
+  const fresh = !PL.username;
+  openModal('setup', `<h2 id="mTitle">${fresh ? 'ตั้ง USER ID และรหัสผ่าน' : 'ตั้งรหัสผ่านใหม่'}</h2>
+    <p>${fresh ? 'ใช้เข้าเกมครั้งต่อไปจากมือถือหรือคอมเครื่องไหนก็ได้ ฟาร์มและคูปองจะตามมาด้วย จดเก็บไว้ให้ดี' : 'คุณเข้าด้วยรหัสผ่านชั่วคราวจากแอดมิน ตั้งรหัสผ่านใหม่ของคุณเองก่อนเล่นต่อ'}</p>
+    <form class="reg" id="setupForm" novalidate>
+      ${fresh ? '<label class="f">USER ID (4–20 ตัว: a-z, 0-9, _ หรือ .)<input id="sUser" maxlength="20" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="เช่น mali_farm"></label>' : '<p>USER ID: <b>' + esc(PL.username) + '</b></p>'}
+      ${pwField('sPass', 'รหัสผ่าน (อย่างน้อย 6 ตัว)', 'new-password')}
+      ${pwField('sPass2', 'ยืนยันรหัสผ่าน', 'new-password')}
+      <p class="err" id="sErr" role="alert"></p>
+      <button class="btn" type="submit" id="sGo">บันทึกแล้วเริ่มเล่น</button>
     </form>`);
 }
+function openAccount() {
+  const role = PL.role === 'gm' ? 'GM (ปลดล็อกทุกอย่าง)' : PL.role === 'tester' ? 'ทีมงานทดสอบ' : 'ผู้เล่น';
+  openModal('account', `<h2 id="mTitle">บัญชีของฉัน</h2>
+    <div class="rows"><div class="cprow"><div class="lv">ID</div><div class="meta"><b>${esc(PL.username || '-')}</b><small>${esc(PL.name)} · ${role} · เลเวล ${S.level}</small></div><span></span></div></div>
+    <p style="margin-top:10px;font-size:13px;color:var(--muted)">เข้าเกมจากเครื่องอื่นด้วย USER ID และรหัสผ่านนี้ ฟาร์มจะบันทึกขึ้นระบบอัตโนมัติทุกนาที</p>
+    <form class="reg" id="pwForm" novalidate>
+      <b style="font-family:var(--display);font-weight:400;font-size:18px">เปลี่ยนรหัสผ่าน</b>
+      ${pwField('pOld', 'รหัสผ่านเดิม', 'current-password')}
+      ${pwField('pNew', 'รหัสผ่านใหม่ (อย่างน้อย 6 ตัว)', 'new-password')}
+      ${pwField('pNew2', 'ยืนยันรหัสผ่านใหม่', 'new-password')}
+      <p class="err" id="pErr" role="alert"></p>
+      <button class="btn ghost" type="submit">เปลี่ยนรหัสผ่าน</button>
+    </form>
+    <footer><button class="btn ghost" data-act="logout">ออกจากระบบ</button><button class="btn" data-act="close">กลับไปที่ฟาร์ม</button></footer>`);
+}
+function demoOk(x) { return x.offline || x.status >= 500 || x.status === 404 || x.status === 405; }
 $('modal').addEventListener('submit', async e => {
-  if (e.target.id !== 'regForm') return;
+  const id = e.target.id; if (!['regForm', 'loginForm', 'setupForm', 'pwForm'].includes(id)) return;
   e.preventDefault();
-  const err = $('rErr'), go = $('rGo');
-  const name = $('rName').value.trim(), phone = $('rPhone').value.trim(), accessCode = $('rCode').value.trim().toUpperCase();
-  if (!name) { err.textContent = 'กรอกชื่อเล่นก่อน'; $('rName').focus(); return; }
-  if (!/^(0[689]\d{8}|\+?66[689]\d{8})$/.test(phone.replace(/[\s-]/g, ''))) { err.textContent = 'เบอร์มือถือต้องเป็น 10 หลัก เช่น 0812345678'; $('rPhone').focus(); return; }
-  if (!$('rTerms').checked) { err.textContent = 'ติ๊กยินยอมการใช้ข้อมูลก่อน เพื่อให้ร้านมอบคูปองให้ได้'; return; }
-  err.textContent = ''; go.disabled = true; go.textContent = 'กำลังลงทะเบียน…';
-  try {
-    const d = await api('register', { name, phone, line: $('rLine').value.trim(), accessCode, consentTerms: true, consentMarketing: $('rMkt').checked, ...progress() });
-    PL.token = d.token; PL.demo = false; applySnapshot(d);
-    closeModal(true);
-    toast(d.returning ? 'ยินดีต้อนรับกลับ ' + PL.name + '! คูปองเดิมยังอยู่ครบ' : 'สวัสดี ' + PL.name + '! เลือกจอบ แล้วแตะแปลงหญ้าเพื่อเริ่มปลูก');
-    syncPlayer();
-  } catch (x) {
-    err.textContent = x.message; go.disabled = false; go.textContent = 'เริ่มเล่นเลย';
-    if (x.body && x.body.needCode) $('rCode').focus();
-    if (x.offline || x.status >= 500 || x.status === 404 || x.status === 405) $('rDemo').hidden = false;
+  if (id === 'loginForm') {
+    const err = $('lErr'), go = $('lGo'), username = $('lUser').value.trim(), password = $('lPass').value;
+    if (!username || !password) { err.textContent = 'กรอก USER ID และรหัสผ่าน'; return; }
+    err.textContent = ''; go.disabled = true; go.textContent = 'กำลังเข้าสู่ระบบ…';
+    try {
+      const d = await api('login', { username, password });
+      PL.token = d.token; PL.demo = false;
+      const restored = adoptSave(d.save);
+      closeModal(true); applySnapshot(d);
+      if (!d.needSetup) toast((restored ? 'โหลดฟาร์มของ ' : 'ยินดีต้อนรับ ') + (PL.username || PL.name) + (restored ? ' จากระบบแล้ว' : '!'));
+      if (!restored) syncPlayer();
+      applyGM();
+    } catch (x) { err.textContent = x.message; go.disabled = false; go.textContent = 'เข้าสู่ระบบ'; if (demoOk(x)) $('rDemo').hidden = false; }
+  }
+  if (id === 'regForm') {
+    const err = $('rErr'), go = $('rGo');
+    const name = $('rName').value.trim(), phone = $('rPhone').value.trim(), accessCode = $('rCode').value.trim().toUpperCase();
+    if (!accessCode) { err.textContent = 'กรอกรหัสเข้าใช้งานจากการ์ดหรือแชทร้าน'; $('rCode').focus(); return; }
+    if (!name) { err.textContent = 'กรอกชื่อเล่นก่อน'; $('rName').focus(); return; }
+    if (!/^(0[689]\d{8}|\+?66[689]\d{8})$/.test(phone.replace(/[\s-]/g, ''))) { err.textContent = 'เบอร์มือถือต้องเป็น 10 หลัก เช่น 0812345678'; $('rPhone').focus(); return; }
+    if (!$('rTerms').checked) { err.textContent = 'ติ๊กยินยอมการใช้ข้อมูลก่อน เพื่อให้ร้านมอบคูปองให้ได้'; return; }
+    err.textContent = ''; go.disabled = true; go.textContent = 'กำลังตรวจรหัส…';
+    try {
+      const d = await api('redeem', { name, phone, line: $('rLine').value.trim(), accessCode, consentTerms: true, consentMarketing: $('rMkt').checked, ...progress() });
+      PL.token = d.token; PL.demo = false; PL.username = ''; savePlayer();
+      closeModal(true); applySnapshot(d);
+    } catch (x) {
+      err.textContent = x.message; go.disabled = false; go.textContent = 'ถัดไป: ตั้ง USER ID';
+      if (x.body && x.body.needCode) $('rCode').focus();
+      if (demoOk(x)) $('rDemo').hidden = false;
+    }
+  }
+  if (id === 'setupForm') {
+    const err = $('sErr'), go = $('sGo'), p1 = $('sPass').value, p2 = $('sPass2').value, user = $('sUser') ? $('sUser').value.trim() : '';
+    if ($('sUser') && !/^[a-zA-Z0-9_.]{4,20}$/.test(user)) { err.textContent = 'USER ID ใช้ได้ 4–20 ตัว: a-z, 0-9, _ หรือ . (ห้ามเว้นวรรค ห้ามภาษาไทย)'; $('sUser').focus(); return; }
+    if (p1.length < 6) { err.textContent = 'รหัสผ่านต้องยาวอย่างน้อย 6 ตัว'; $('sPass').focus(); return; }
+    if (p1 !== p2) { err.textContent = 'ยืนยันรหัสผ่านไม่ตรงกัน'; $('sPass2').focus(); return; }
+    err.textContent = ''; go.disabled = true; go.textContent = 'กำลังบันทึก…';
+    try {
+      const d = await api('setup', { token: PL.token, username: user, password: p1 });
+      closeModal(true); applySnapshot(d); applyGM();
+      toast('บันทึกบัญชี ' + PL.username + ' แล้ว · ครั้งหน้าเข้าด้วย USER ID นี้ได้ทุกเครื่อง');
+      syncPlayer();
+    } catch (x) { err.textContent = x.message; go.disabled = false; go.textContent = 'บันทึกแล้วเริ่มเล่น'; if (x.status === 401) lostSession(); }
+  }
+  if (id === 'pwForm') {
+    const err = $('pErr'), o = $('pOld').value, n1 = $('pNew').value, n2 = $('pNew2').value;
+    if (n1.length < 6) { err.textContent = 'รหัสผ่านใหม่ต้องยาวอย่างน้อย 6 ตัว'; return; }
+    if (n1 !== n2) { err.textContent = 'ยืนยันรหัสผ่านใหม่ไม่ตรงกัน'; return; }
+    err.textContent = 'กำลังบันทึก…';
+    try { await api('password', { token: PL.token, oldPassword: o, newPassword: n1 }); err.style.color = 'var(--leaf)'; err.textContent = 'เปลี่ยนรหัสผ่านเรียบร้อย'; ['pOld', 'pNew', 'pNew2'].forEach(k => { $(k).value = ''; }); }
+    catch (x) { err.style.color = ''; err.textContent = x.message; if (x.status === 401) lostSession(); }
   }
 });
+
+// ---- GM: everything unlocked once per farm ----
+function applyGM() {
+  if (PL.role !== 'gm' || !PL.token || S.gm) return;
+  S.gm = true;
+  S.level = Math.max(S.level, 12); S.xp = Math.max(S.xp, xpNeed(11)); S.money = Math.max(S.money, 999999);
+  S.unlocked = MAX_PLOTS; S.ponds.forEach(p => { p.dug = true; }); S.up.sprinkler = true; S.up.feeder = true;
+  CROPS.forEach(c => { S.seeds[c.id] = Math.max(S.seeds[c.id] || 0, 99); });
+  FISH.forEach(f => { S.fry[f.id] = Math.max(S.fry[f.id] || 0, 30); });
+  hudCache = ''; buildBackgrounds(); renderTray(); renderQuests(); hud(); save();
+  toast('โหมด GM: ปลดล็อกทุกอย่างแล้ว · Lv 12 · ฿999,999 · ที่ดิน 40 แปลง · บ่อปลา 3 บ่อ');
+}
+// ---- team test panel ----
+function openTestPanel() {
+  const btn = (act, label, extra) => `<button class="btn ${extra || 'ghost'}" data-act="t-${act}">${label}</button>`;
+  openModal('test', `<h2 id="mTitle">แผงทดสอบ (ทีมงาน)</h2>
+    <p>ใช้ทดสอบระบบก่อนแจกจริง คูปองของบัญชีทีมงานจะขึ้นว่า "ทดสอบ" และไม่นับในสถิติลูกค้า</p>
+    <div class="tabs">${[1, 5, 20].map(x => `<button class="btn ${TIME_SCALE === x ? 'on' : 'ghost'}" data-act="t-speed" data-x="${x}">เวลา x${x}</button>`).join('')}</div>
+    <div class="tabs">${btn('money', '+฿1,000')}${btn('level', '+1 เลเวล')}${btn('ripe', 'ผักสุกทุกแปลง')}${btn('fish', 'ปลาโตทุกตัว')}${btn('day', 'ข้ามไปวันถัดไป')}${btn('stock', 'เติมเมล็ด + ลูกปลา')}</div>
+    <div class="tabs">${btn('sync', 'บันทึก/ซิงก์กับระบบตอนนี้')}${btn('coupons', 'ดูคูปอง')}${btn('wipe', 'ล้างฟาร์มบัญชีนี้')}</div>
+    <p id="tMsg" style="font-size:13px;color:var(--muted)">บัญชี: ${esc(PL.username)} · บทบาท: ${PL.role === 'gm' ? 'GM' : 'ทีมงานทดสอบ'} · Lv ${S.level} · ฿${S.money.toLocaleString('th-TH')}</p>
+    <footer><span></span><button class="btn" data-act="close">กลับไปที่ฟาร์ม</button></footer>`);
+}
+async function testAction(act, b) {
+  const msg = t => { const el = $('tMsg'); if (el) el.textContent = t; toast(t); };
+  if (act === 'speed') { TIME_SCALE = +b.dataset.x; openTestPanel(); msg('ความเร็วเวลา x' + TIME_SCALE); }
+  if (act === 'money') { S.money += 1000; hud(); msg('เพิ่มเงิน ฿1,000 · รวม ฿' + S.money.toLocaleString('th-TH')); }
+  if (act === 'level') { gainXp(Math.max(1, xpNeed(S.level) - S.xp), F.x, F.y); hud(); msg('ขึ้นเป็นเลเวล ' + S.level); }
+  if (act === 'ripe') { let n = 0; S.plots.forEach(p => { if (p.s === 'crop' && p.p < 1) { p.p = 1; p.ripe = 0; n++; } }); msg('ผักสุกทันที ' + n + ' แปลง'); }
+  if (act === 'fish') { let n = 0; S.ponds.forEach(pd => pd.fish.forEach(f => { if (f.g < 1) { f.g = 1; n++; } })); msg('ปลาโตเต็มที่ ' + n + ' ตัว'); }
+  if (act === 'day') { S.clock = DAY; msg('ข้ามไปเช้าวันถัดไป'); }
+  if (act === 'stock') { CROPS.filter(c => c.lvl <= S.level).forEach(c => { S.seeds[c.id] = (S.seeds[c.id] || 0) + 20; }); FISH.filter(f => f.lvl <= S.level).forEach(f => { S.fry[f.id] = (S.fry[f.id] || 0) + 10; }); renderTray(); msg('เติมเมล็ด +20 และลูกปลา +10 ทุกชนิดที่ปลดล็อกแล้ว'); }
+  if (act === 'sync') { await syncPlayer(); msg('ซิงก์แล้ว · ' + new Date().toLocaleTimeString('th-TH')); }
+  if (act === 'coupons') openCoupons();
+  if (act === 'wipe') { const role = PL.role; S = newState(); hudCache = ''; resetFarmer(); ensureQuests(); renderQuests(); buildBackgrounds(); setMode('field', false); hud(); save(); if (role === 'gm') applyGM(); syncPlayer(); msg('ล้างฟาร์มแล้ว'); }
+}
+
 function showCouponWin(m) {
   burst(F.x, F.y - 60, '#f6c63c', 30);
   openModal('coupon', `<h2 id="mTitle">ยินดีด้วย! ได้คูปอง${esc(m.label)}</h2>
     <p>เล่นถึงเลเวล ${m.level} แล้ว นี่คือของขวัญจากร้าน ${SHOP_NAME}</p>
     <div class="coupon"><span class="code">${esc(m.reward.code)}</span><small>${esc(m.reward.label)} · ใช้ได้ถึง ${fmtTH(m.reward.expiresAt)} · ใช้ได้ 1 ครั้ง</small>
       <button class="btn" data-act="copycode" data-code="${esc(m.reward.code)}">คัดลอกโค้ด</button></div>
-    <p style="margin-top:10px"><b>วิธีใช้:</b> ตอนสั่งซื้อครั้งถัดไป ส่งโค้ดนี้ให้แอดมินทางแชท หรือแสดงหน้าจอนี้ที่หน้าร้าน แคปหน้าจอเก็บไว้ได้เลย ดูคูปองทั้งหมดได้ที่ปุ่ม "คูปอง" ด้านบน</p>
+    <p style="margin-top:10px"><b>วิธีใช้:</b> ตอนสั่งซื้อครั้งถัดไป ส่งโค้ดนี้ให้แอดมินทางแชท หรือแสดงหน้าจอนี้ที่หน้าร้าน ดูคูปองทั้งหมดได้ที่ปุ่ม "คูปอง" ด้านบน</p>
     <footer><span></span><button class="btn" data-act="close">เล่นต่อ</button></footer>`);
 }
 function openCoupons() {
@@ -2190,25 +2341,38 @@ function openCoupons() {
     const r = m.reward, reached = S.level >= m.level;
     let right = '', sub;
     if (r) { sub = r.redeemedAt ? 'ใช้แล้วเมื่อ ' + fmtTH(r.redeemedAt) : 'ใช้ได้ถึง ' + fmtTH(r.expiresAt); right = `<button class="btn ghost" data-act="copycode" data-code="${esc(r.code)}">คัดลอก</button>`; }
-    else if (!PL.token) sub = 'ลงทะเบียนเพื่อรับคูปองนี้';
+    else if (!PL.token) sub = 'เข้าสู่ระบบเพื่อรับคูปองนี้';
     else if (reached && m.unlockAt && Date.parse(m.unlockAt) > Date.now()) sub = 'ปลดล็อกในอีก ' + Math.ceil((Date.parse(m.unlockAt) - Date.now()) / 60000) + ' นาที';
     else sub = reached ? 'กำลังออกคูปอง…' : 'อีก ' + (m.level - S.level) + ' เลเวล';
-    return `<div class="cprow ${r ? '' : 'locked'}"><div class="lv">Lv<br>${m.level}</div><div class="meta"><b>${esc(m.label)}</b>${r ? '<span class="code">' + esc(r.code) + '</span><br>' : ''}<small>${sub}</small></div>${right}</div>`;
+    return `<div class="cprow ${r ? '' : 'locked'}"><div class="lv">Lv<br>${m.level}</div><div class="meta"><b>${esc(r ? r.label : m.label)}</b>${r ? '<span class="code">' + esc(r.code) + '</span><br>' : ''}<small>${sub}</small></div>${right}</div>`;
   }).join('');
   openModal('coupons', `<h2 id="mTitle">คูปองของฉัน</h2>
-    <p>${PL.token ? 'ผู้เล่น: <b>' + esc(PL.name) + '</b> · เลเวล ' + S.level : 'โหมดทดลอง · ยังไม่ได้ลงทะเบียน'}</p>
+    <p>${PL.token ? 'USER ID: <b>' + esc(PL.username || PL.name) + '</b> · เลเวล ' + S.level : 'โหมดทดลอง · ยังไม่ได้เข้าสู่ระบบ'}</p>
     <div class="rows">${rows}</div>
     <p style="margin-top:10px;font-size:13px;color:var(--muted)">ส่งโค้ดให้แอดมินทางแชทตอนสั่งซื้อ หรือแสดงที่หน้าร้าน คูปองแต่ละใบใช้ได้ 1 ครั้ง</p>
-    <footer>${PL.token ? '<button class="btn ghost" data-act="relogin">ไม่ใช่ฉัน / เปลี่ยนเบอร์</button>' : '<button class="btn" data-act="register">ลงทะเบียนรับคูปอง</button>'}<button class="btn" data-act="close">กลับไปที่ฟาร์ม</button></footer>`);
-  if (PL.token) syncPlayer();
+    <footer>${PL.token ? '<button class="btn ghost" data-act="account">บัญชีของฉัน</button>' : '<button class="btn" data-act="signin">เข้าสู่ระบบ / สมัคร</button>'}<button class="btn" data-act="close">กลับไปที่ฟาร์ม</button></footer>`);
+  if (PL.token) syncPlayer(false, false);
 }
 $('couponChip').addEventListener('click', openCoupons);
+$('acctChip').addEventListener('click', openAccount);
+$('testChip').addEventListener('click', openTestPanel);
 $('modal').addEventListener('click', async e => {
   const b = e.target.closest('button'); if (!b) return;
   const act = b.dataset.act;
-  if (act === 'demo') { PL.demo = true; closeModal(true); toast('โหมดทดลอง · กดปุ่ม "คูปอง" ด้านบนเพื่อลงทะเบียนเมื่อพร้อม'); }
-  if (act === 'register') openRegister();
-  if (act === 'relogin') { PL.token = null; PL.milestones = []; savePlayer(); renderCouponChip(); openRegister(); }
+  if (act === 'demo') { PL.demo = true; closeModal(true); toast('โหมดทดลอง · กดปุ่ม "คูปอง" ด้านบนเพื่อเข้าสู่ระบบเมื่อพร้อม'); }
+  if (act === 'authtab') openAuth(b.dataset.tab);
+  if (act === 'signin') openAuth();
+  if (act === 'account') openAccount();
+  if (act === 'forgot') $('forgotHelp').hidden = false;
+  if (act === 'eye') { const inp = $(b.dataset.for); inp.type = inp.type === 'password' ? 'text' : 'password'; b.textContent = inp.type === 'password' ? 'แสดง' : 'ซ่อน'; }
+  if (act === 'logout') {
+    try { await syncPlayer(false, true); await api('logout', { token: PL.token }); } catch (_) {}
+    PL = { ...PL, token: null, name: '', role: 'player', milestones: [], lastUser: PL.username || PL.lastUser, username: '' }; savePlayer();
+    try { localStorage.removeItem(SAVE_KEY); } catch (_) {}
+    S = newState(); hudCache = ''; resetFarmer(); ensureQuests(); renderQuests(); buildBackgrounds(); setMode('field', false); hud();
+    renderAccountChips(); renderCouponChip(); closeModal(true); openAuth('login', 'ออกจากระบบแล้ว ฟาร์มของคุณบันทึกไว้ในบัญชี');
+  }
+  if (act && act.startsWith('t-') && isTeam()) testAction(act.slice(2), b);
   if (act === 'copycode') {
     const c = b.dataset.code;
     try { await navigator.clipboard.writeText(c); b.textContent = 'คัดลอกแล้ว'; }
@@ -2251,7 +2415,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && S) 
 let prev = 0;
 function frame(now) {
   const dt = Math.min(0.25, (now - prev) / 1000 || 0); prev = now; t += dt;
-  if ($('veil').hidden || modalKind === 'market') update(dt);
+  if ($('veil').hidden || modalKind === 'market' || modalKind === 'test') update(dt * TIME_SCALE);
   updateCam(dt);
   draw(dt); hud();
   requestAnimationFrame(frame);
@@ -2263,7 +2427,8 @@ function start(data) {
   cam.x = F.x - cssW / cam.z / 2; cam.y = F.y - cssH / cam.z / 2; clampCam();
   setMode(S.mode || 'field', false); hud();
   ensureQuests(); renderQuests(); renderCouponChip();
-  if (!PL.token && !PL.demo) openRegister(); else syncPlayer();
+  renderAccountChips();
+  if (!PL.token) openAuth(); else { syncPlayer(); applyGM(); }
   if (!data || !data.state) toast(S.harvested || S.day > 1 ? 'ยินดีต้อนรับกลับสู่ฟาร์ม · วันที่ ' + S.day : 'เลือกจอบ แล้วแตะแปลงหญ้า ชาวไร่จะเดินไปไถให้');
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { iconCache.clear(); renderTray(); });
   requestAnimationFrame(t0 => { prev = t0; requestAnimationFrame(frame); });
