@@ -1,0 +1,3 @@
+# Netlify: connect this repo to the site and every push to main deploys automatically.
+[build]
+  publish = "site"

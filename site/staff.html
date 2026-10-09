@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Garden หลังร้าน</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Itim&family=Mali:wght@400;600;700&display=swap">
+<style>
+/* Staff counter for the Zana Little Garden gift game: check + redeem coupons, see who plays, export opt-in leads. Same wooden palette as the game. */
+:root {
+  --bg: #f4ecd8; --panel: #fffaf0; --ink: #2d2416; --muted: #7d6a4c; --wood: #b5793f; --wood-dk: #7a4b22;
+  --sun: #f39a1e; --coin: #f6c63c; --leaf: #4f8a2c; --danger: #c4442b; --line: #e6d6b0;
+  --display: "Itim", "Mali", system-ui, sans-serif; --body: "Mali", system-ui, sans-serif;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; padding-inline: 16px; padding-block: 16px 40px; }
+.wrap { max-width: 1100px; margin: 0 auto; display: grid; gap: 14px; }
+header { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; background: var(--wood); border: 3px solid var(--wood-dk); border-radius: 14px; padding: 10px 14px; color: var(--panel); }
+header h1 { font-family: var(--display); font-weight: 400; font-size: 26px; margin: 0 auto 0 0; color: var(--panel); }
+.card { background: var(--panel); border: 2px solid var(--line); border-radius: 14px; padding: 14px; min-width: 0; }
+h2 { font-family: var(--display); font-weight: 400; font-size: 20px; margin: 0 0 6px; }
+p { margin: 0 0 8px; }
+.muted { color: var(--muted); font-size: 13px; }
+.btn { font-family: var(--display); font-size: 16px; color: var(--ink); background: var(--coin); border: 2px solid var(--ink); border-radius: 10px; padding: 7px 14px; cursor: pointer; box-shadow: 0 2px 0 var(--ink); white-space: nowrap; }
+.btn.ghost { background: #fff; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn:focus-visible, input:focus-visible { outline: 3px solid #3d8fdc; outline-offset: 2px; }
+input { font-family: var(--body); font-size: 16px; border: 2px solid var(--wood-dk); border-radius: 10px; padding: 8px 12px; width: 100%; background: #fff; color: var(--ink); }
+.row { display: flex; gap: 8px; align-items: center; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.stat b { display: block; font-family: var(--display); font-weight: 400; font-size: 34px; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.stat span { color: var(--muted); font-size: 13px; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; }
+.found { margin-top: 10px; border: 2px dashed var(--ink); border-radius: 12px; padding: 10px; background: #fff1c7; }
+.code { font-family: var(--display); font-size: 22px; letter-spacing: .06em; }
+.pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; border: 1.5px solid currentColor; }
+.ok { color: var(--leaf); } .bad { color: var(--danger); } .gray { color: var(--muted); }
+.msg { margin-top: 8px; min-height: 1.2em; }
+.chan { display: grid; grid-template-columns: 56px 1fr auto; gap: 10px; align-items: center; border: 2px solid var(--line); border-radius: 12px; padding: 6px; }
+.chan img { width: 56px; height: 56px; border-radius: 6px; background: #fff; }
+.chan .u { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: ui-monospace, monospace; }
+.bar { height: 6px; border-radius: 6px; background: var(--line); overflow: hidden; margin-top: 4px; } .bar i { display: block; height: 100%; background: var(--leaf); }
+.chans { display: grid; gap: 6px; }
+.tablewrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th { text-align: left; color: var(--muted); font-weight: 600; border-bottom: 2px solid var(--line); padding: 6px 8px; white-space: nowrap; }
+td { border-bottom: 1px solid var(--line); padding: 6px 8px; vertical-align: top; }
+td.n { text-align: right; font-variant-numeric: tabular-nums; }
+.login { max-width: 420px; margin: 8vh auto 0; }
+.gen { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+.gen label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+select { font-family: var(--body); font-size: 16px; border: 2px solid var(--wood-dk); border-radius: 10px; padding: 8px 10px; background: #fff; color: var(--ink); width: 100%; }
+.codes { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px; margin-top: 8px; max-height: 260px; overflow: auto; }
+.codes span { font-family: ui-monospace, monospace; font-size: 15px; text-align: center; border: 2px dashed var(--ink); border-radius: 8px; padding: 6px 4px; background: #fff1c7; user-select: all; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><h1>Garden หลังร้าน</h1><span id="who"></span><button class="btn ghost" id="logout" hidden>ออกจากระบบ</button></header>
+
+  <section class="card login" id="loginCard">
+    <h2>เข้าสู่ระบบพนักงาน</h2>
+    <p class="muted">ใช้รหัสพนักงานที่ได้รับจากเจ้าของร้าน หน้านี้มีข้อมูลส่วนตัวของลูกค้า อย่าแชร์รหัส</p>
+    <form id="loginForm" class="row"><input id="pin" autocomplete="current-password" placeholder="XXXX-XXXX-XXXX" aria-label="รหัสพนักงาน"><button class="btn" type="submit">เข้าระบบ</button></form>
+    <p class="msg bad" id="loginMsg" role="alert"></p>
+  </section>
+
+  <div id="app" hidden>
+    <div class="stats" id="stats"></div>
+    <div class="grid2" style="margin-top:14px">
+      <section class="card">
+        <h2>ตรวจ / ใช้คูปอง</h2>
+        <p class="muted">ลูกค้าส่งโค้ดมาทางแชทหรือโชว์ที่หน้าร้าน กรอกโค้ด ตรวจเบอร์ให้ตรงกับออเดอร์ แล้วกด "ใช้คูปอง" ก่อนให้ส่วนลด</p>
+        <div class="row"><input id="code" placeholder="ZG-XXXX-XXXX" style="text-transform:uppercase;font-family:ui-monospace,monospace"><button class="btn" id="redeem" disabled>ใช้คูปอง</button></div>
+        <input id="note" placeholder="หมายเหตุ เช่น เลขออเดอร์ (ไม่บังคับ)" style="margin-top:6px">
+        <div id="found"></div>
+        <p class="msg" id="redeemMsg" role="status"></p>
+      </section>
+      <section class="card">
+        <h2>สร้างรหัสเข้าใช้งาน</h2>
+        <p class="muted">ลูกค้าเข้าเกมที่ลิงก์เดียว แล้วกรอกรหัสนี้ตอนลงทะเบียน รหัสบอกช่องทางขายให้อัตโนมัติ · 1 รหัส = 1 ลูกค้า (หรือตั้งให้ใช้ได้หลายคนสำหรับโพสต์/บรอดแคสต์)</p>
+        <div class="gen">
+          <label>ช่องทาง<select id="gChannel"></select></label>
+          <label>จำนวนรหัส<input id="gCount" type="number" min="1" max="500" value="20" inputmode="numeric"></label>
+          <label>ใช้ได้ต่อรหัส (คน)<input id="gUses" type="number" min="1" max="100000" value="1" inputmode="numeric"></label>
+          <label>ชื่อชุด (ไม่บังคับ)<input id="gBatch" maxlength="60" placeholder="เช่น ล็อตกล่อง ต.ค."></label>
+        </div>
+        <button class="btn" id="gGo" style="margin-top:8px">สร้างรหัส</button>
+        <p class="msg" id="gMsg" role="status"></p>
+        <div id="gOut" hidden>
+          <div class="row" style="flex-wrap:wrap"><button class="btn ghost" id="gCopy">คัดลอกทั้งหมด</button><button class="btn ghost" id="gCsv">ดาวน์โหลด CSV สำหรับพิมพ์</button></div>
+          <div class="codes" id="gList"></div>
+        </div>
+      </section>
+    </div>
+    <div class="grid2" style="margin-top:14px">
+      <section class="card">
+        <h2>ลิงก์เกม (ลิงก์เดียวสำหรับทุกคน)</h2>
+        <div class="chan"><a id="qrBig" target="_blank" rel="noreferrer"><img id="qrImg" alt="QR เข้าเกม"></a><div style="min-width:0"><b id="playUrl"></b><div class="muted">แปะลิงก์หรือ QR นี้คู่กับรหัสเข้าใช้งาน · กดรูปเพื่อเปิด QR ขนาดใหญ่</div></div><button class="btn ghost" id="copyUrl">คัดลอก</button></div>
+        <p class="muted" style="margin-top:8px">ส่งในแชทแบบกดครั้งเดียวเข้าได้เลย: ใช้ลิงก์ <code>?code=รหัส</code> ระบบกรอกรหัสให้อัตโนมัติ</p>
+      </section>
+      <section class="card">
+        <h2>สรุปรหัสตามช่องทาง</h2>
+        <div class="chans" id="chans"></div>
+      </section>
+    </div>
+    <section class="card" style="margin-top:14px">
+      <div class="row" style="flex-wrap:wrap;margin-bottom:8px">
+        <h2 style="margin:0 auto 0 0">ผู้เล่น</h2>
+        <input id="q" placeholder="ค้นชื่อ เบอร์ หรือ LINE ID" style="max-width:260px">
+        <button class="btn ghost" id="csvOpt">CSV ผู้ยินยอมรับข่าวสาร</button>
+        <button class="btn ghost" id="csvAll">CSV ทั้งหมด</button>
+        <button class="btn ghost" id="reload">รีเฟรช</button>
+      </div>
+      <p class="muted">"ลูกค้าเดิม" = เบอร์นี้มีในฐานลูกค้า ERP แล้ว · ส่งโปรโมชั่นได้เฉพาะคนที่ยินยอมรับข่าวสาร (PDPA)</p>
+      <div class="tablewrap"><table><thead><tr><th>ลูกค้า</th><th>ช่องทาง</th><th>เลเวล</th><th>คูปอง</th><th>รับข่าวสาร</th><th>ลงทะเบียน</th><th>เล่นล่าสุด</th></tr></thead><tbody id="rows"></tbody></table></div>
+    </section>
+  </div>
+</div>
+<script>
+(() => {
+'use strict';
+const API = 'https://gxycxjksrzjzxzgbblup.supabase.co/functions/v1/garden';
+const CH = { shopee: 'Shopee', lazada: 'Lazada', tiktok: 'TikTok Shop', line: 'LINE OA', facebook: 'Facebook', store: 'หน้าร้าน / ออกบูธ', other: 'อื่นๆ' };
+const $ = id => document.getElementById(id);
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmtD = s => new Date(s).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' });
+const fmtDT = s => new Date(s).toLocaleString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+let PIN = '', DATA = null;
+try { PIN = sessionStorage.getItem('garden-staff-pin') || ''; } catch (_) {}
+
+async function call(body) {
+  const res = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'staff', pin: PIN, ...body }) });
+  let d = null; try { d = await res.json(); } catch (_) {}
+  if (!res.ok) { const e = new Error((d && d.error) || 'เชื่อมต่อระบบไม่ได้'); e.status = res.status; throw e; }
+  return d;
+}
+function couponState(r) {
+  if (r.redeemed_at) return ['ใช้แล้ว', 'gray'];
+  if (new Date(r.expires_at) < new Date()) return ['หมดอายุ', 'bad'];
+  return ['ยังไม่ใช้', 'ok'];
+}
+async function load() {
+  try {
+    DATA = await call({ op: 'summary' });
+    try { sessionStorage.setItem('garden-staff-pin', PIN); } catch (_) {}
+    $('loginCard').hidden = true; $('app').hidden = false; $('logout').hidden = false;
+    render();
+  } catch (e) {
+    if (e.status === 401) { PIN = ''; try { sessionStorage.removeItem('garden-staff-pin'); } catch (_) {} $('loginCard').hidden = false; $('app').hidden = true; $('loginMsg').textContent = e.message; }
+    else $('loginMsg').textContent = e.message;
+  }
+}
+function render() {
+  const P = DATA.players, Rw = DATA.rewards, now = Date.now(), wk = 7 * 864e5;
+  const byP = new Map(); Rw.forEach(r => byP.set(r.player_id, [...(byP.get(r.player_id) || []), r]));
+  const stats = [
+    ['ผู้เล่นทั้งหมด', P.length, 'ใหม่ 7 วัน ' + P.filter(p => now - new Date(p.created_at) < wk).length + ' คน'],
+    ['ยังเล่นอยู่ (7 วัน)', P.filter(p => now - new Date(p.last_seen_at) < wk).length, 'เปิดเกมในสัปดาห์นี้'],
+    ['เป็นลูกค้าเดิม', P.filter(p => p.is_customer).length, 'เบอร์ตรงกับฐานลูกค้า ERP'],
+    ['คูปองที่แจก', Rw.length, 'ใช้แล้ว ' + Rw.filter(r => r.redeemed_at).length + ' ใบ'],
+    ['ยินยอมรับข่าวสาร', P.filter(p => p.consent_marketing).length, 'ทำการตลาดซ้ำได้'],
+  ];
+  $('stats').innerHTML = stats.map(([l, v, s]) => `<div class="card stat"><span>${l}</span><b>${v.toLocaleString('th-TH')}</b><span>${s}</span></div>`).join('');
+  const AC = DATA.accessCodes || [];
+  const rowsCh = Object.keys(CH).map(k => {
+    const codes = AC.filter(c => c.channel === k);
+    return { k, made: codes.length, used: codes.reduce((a, c) => a + c.uses, 0), players: P.filter(p => p.channel === k).length };
+  }).filter(r => r.made || r.players);
+  const max = Math.max(1, ...rowsCh.map(r => r.players));
+  $('chans').innerHTML = rowsCh.length ? rowsCh.map(r => `<div><b>${CH[r.k]}</b> <span class="muted">· ผู้เล่น ${r.players} คน · สร้างรหัส ${r.made} · ถูกใช้ ${r.used} ครั้ง</span><div class="bar"><i style="width:${r.players / max * 100}%"></i></div></div>`).join('')
+    : '<p class="muted">ยังไม่มีรหัส — สร้างชุดแรกที่ช่อง "สร้างรหัสเข้าใช้งาน"</p>';
+  const q = $('q').value.trim().toLowerCase();
+  const list = P.filter(p => !q || [p.display_name, p.phone, p.line_id || ''].some(v => v.toLowerCase().includes(q))).slice(0, 300);
+  $('rows').innerHTML = list.length ? list.map(p => `<tr>
+    <td><b>${esc(p.display_name)}</b>${p.is_customer ? ' <span class="pill ok">ลูกค้าเดิม</span>' : ''}<div class="muted">${esc(p.phone)}${p.line_id ? ' · LINE ' + esc(p.line_id) : ''}</div></td>
+    <td>${esc(CH[p.channel] || p.channel)}</td><td class="n">${p.level}</td>
+    <td>${(byP.get(p.id) || []).map(r => { const [l, c] = couponState(r); return `<span class="pill ${c}" title="${esc(r.discount_label)} · ${l}">${esc(r.code)}</span>`; }).join(' ') || '<span class="muted">—</span>'}</td>
+    <td>${p.consent_marketing ? 'ยินยอม' : '—'}</td><td>${fmtD(p.created_at)}</td><td>${fmtDT(p.last_seen_at)}</td></tr>`).join('')
+    : '<tr><td colspan="7" class="muted" style="text-align:center;padding:24px">ยังไม่มีผู้เล่น — ส่งลิงก์ด้านบนให้ลูกค้าคนแรก แล้วรายชื่อจะขึ้นที่นี่</td></tr>';
+  lookup();
+}
+function lookup() {
+  const code = $('code').value.trim().toUpperCase(), btn = $('redeem');
+  const r = DATA && code.length >= 4 ? DATA.rewards.find(x => x.code === code) : null;
+  if (!r) { $('found').innerHTML = code.length >= 12 ? '<p class="msg bad">ไม่พบโค้ดนี้ — ตรวจตัวอักษรอีกครั้ง หรือกดรีเฟรช</p>' : ''; btn.disabled = true; return; }
+  const p = DATA.players.find(x => x.id === r.player_id) || {}, [l, c] = couponState(r);
+  $('found').innerHTML = `<div class="found"><div class="row" style="justify-content:space-between"><span class="code">${esc(r.code)}</span><span class="pill ${c}">${l}</span></div>
+    <div><b>${esc(r.discount_label)}</b> · หมดอายุ ${fmtD(r.expires_at)}</div><div class="muted">${esc(p.display_name)} · ${esc(p.phone)}${p.is_customer ? ' · ลูกค้าเดิม' : ''}</div></div>`;
+  btn.disabled = c !== 'ok';
+}
+const playUrl = location.origin + '/';
+$('playUrl').textContent = playUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
+const qr = s => 'https://api.qrserver.com/v1/create-qr-code/?size=' + s + '&margin=12&data=' + encodeURIComponent(playUrl);
+$('qrImg').src = qr('120x120'); $('qrBig').href = qr('800x800');
+$('copyUrl').dataset.copy = playUrl;
+$('gChannel').innerHTML = Object.entries(CH).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
+let lastCodes = [];
+$('gGo').addEventListener('click', async () => {
+  const btn = $('gGo'), msg = $('gMsg'); btn.disabled = true; msg.className = 'msg'; msg.textContent = 'กำลังสร้างรหัส…';
+  try {
+    const d = await call({ op: 'gencodes', channel: $('gChannel').value, count: +$('gCount').value || 1, maxUses: +$('gUses').value || 1, batch: $('gBatch').value.trim() });
+    lastCodes = d.codes;
+    msg.className = 'msg ok'; msg.textContent = 'สร้าง ' + d.codes.length + ' รหัส · ' + CH[d.channel] + ' · ใช้ได้รหัสละ ' + d.maxUses + ' คน';
+    $('gList').innerHTML = d.codes.map(c => '<span>' + esc(c) + '</span>').join(''); $('gOut').hidden = false;
+    load();
+  } catch (e) { msg.className = 'msg bad'; msg.textContent = e.message; }
+  btn.disabled = false;
+});
+$('gCopy').addEventListener('click', async () => {
+  const text = lastCodes.join('\n');
+  try { await navigator.clipboard.writeText(text); $('gCopy').textContent = 'คัดลอกแล้ว'; } catch (_) { window.prompt('คัดลอกรหัส', text); }
+  setTimeout(() => { $('gCopy').textContent = 'คัดลอกทั้งหมด'; }, 1500);
+});
+$('gCsv').addEventListener('click', () => {
+  const rows = ['รหัส,ลิงก์เข้าเกมพร้อมรหัส', ...lastCodes.map(c => c + ',' + playUrl + '?code=' + c)];
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['\ufeff' + rows.join('\n')], { type: 'text/csv;charset=utf-8' }));
+  a.download = 'kidfarm-codes-' + new Date().toISOString().slice(0, 10) + '.csv'; a.click(); URL.revokeObjectURL(a.href);
+});
+$('loginForm').addEventListener('submit', e => { e.preventDefault(); PIN = $('pin').value.trim().toUpperCase(); $('loginMsg').textContent = 'กำลังตรวจรหัส…'; load(); });
+$('logout').addEventListener('click', () => { PIN = ''; try { sessionStorage.removeItem('garden-staff-pin'); } catch (_) {} location.reload(); });
+$('code').addEventListener('input', () => { $('redeemMsg').textContent = ''; lookup(); });
+$('q').addEventListener('input', render);
+$('reload').addEventListener('click', load);
+$('redeem').addEventListener('click', async () => {
+  const btn = $('redeem'), msg = $('redeemMsg'); btn.disabled = true; msg.className = 'msg'; msg.textContent = 'กำลังบันทึก…';
+  try { const d = await call({ op: 'redeem', code: $('code').value.trim().toUpperCase(), note: $('note').value.trim() }); msg.className = 'msg ok'; msg.textContent = d.message; $('note').value = ''; await load(); }
+  catch (e) { msg.className = 'msg bad'; msg.textContent = e.message; lookup(); }
+});
+document.addEventListener('click', async e => {
+  const b = e.target.closest('[data-copy]'); if (!b) return;
+  try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = 'คัดลอกแล้ว'; } catch (_) { window.prompt('คัดลอกลิงก์นี้', b.dataset.copy); }
+  setTimeout(() => { b.textContent = 'คัดลอก'; }, 1500);
+});
+function csv(onlyOpt) {
+  const byP = new Map(); DATA.rewards.forEach(r => byP.set(r.player_id, [...(byP.get(r.player_id) || []), r.code]));
+  const cell = v => { const s = String(v ?? ''); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const head = ['ชื่อ', 'เบอร์โทร', 'LINE ID', 'ช่องทาง', 'ลูกค้าเดิม', 'เลเวล', 'ยินยอมรับข่าวสาร', 'คูปอง', 'ลงทะเบียน', 'เล่นล่าสุด'];
+  const lines = DATA.players.filter(p => !onlyOpt || p.consent_marketing).map(p => [p.display_name, p.phone, p.line_id, CH[p.channel] || p.channel, p.is_customer ? 'ใช่' : 'ไม่', p.level, p.consent_marketing ? 'ใช่' : 'ไม่', (byP.get(p.id) || []).join(' '), p.created_at, p.last_seen_at].map(cell).join(','));
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['﻿' + [head.join(','), ...lines].join('\n')], { type: 'text/csv;charset=utf-8' }));
+  a.download = 'garden-players' + (onlyOpt ? '-optin' : '') + '-' + new Date().toISOString().slice(0, 10) + '.csv';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+$('csvOpt').addEventListener('click', () => csv(true));
+$('csvAll').addEventListener('click', () => csv(false));
+if (PIN) load();
+})();
+</script>
+</body>
+</html>

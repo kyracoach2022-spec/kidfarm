@@ -1,0 +1,2277 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Zana Little Garden</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Itim&family=Mali:wght@400;600;700&display=swap">
+<style>
+/* Layout: a wooden game cabinet. HUD plank, scene tabs, painted canvas (farm or ponds), tool shelf + seed/fish tray. Single bright storybook world (deliberately one theme). */
+:root {
+  --bg: #cfe0a8;
+  --bg-2: #b2cc84;
+  --ink: #2d2416;
+  --wood: #b5793f;
+  --wood-dk: #7a4b22;
+  --panel: #fff6df;
+  --sun: #f39a1e;
+  --coin: #f6c63c;
+  --water: #3d8fdc;
+  --leaf: #4f8a2c;
+  --danger: #c4442b;
+  --muted: #7d6a4c;
+  --display: "Itim", "Mali", "Comic Sans MS", system-ui, sans-serif;
+  --body: "Mali", "Itim", system-ui, sans-serif;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; }
+html, body, button, canvas, .cabinet, .veil {
+  -webkit-user-select: none; user-select: none;
+  -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
+}
+button, canvas { touch-action: manipulation; }
+body {
+  background: radial-gradient(circle at 20% 0%, var(--bg) 0%, var(--bg-2) 100%);
+  background-color: var(--bg);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 15px;
+  padding-inline: 16px;
+  padding-block: 14px 28px;
+  min-height: 100%;
+}
+.cabinet { max-width: 1000px; margin: 0 auto; display: grid; gap: 10px; }
+
+.hud {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+  background: var(--wood); border: 3px solid var(--wood-dk); border-radius: 14px;
+  padding: 10px 14px; box-shadow: inset 0 -4px 0 rgba(0,0,0,.15);
+}
+.logo { display: flex; flex-direction: column; line-height: .9; margin-right: auto; }
+.logo small { font-family: var(--display); color: var(--panel); font-size: 15px; letter-spacing: .08em; }
+.logo b {
+  font-family: var(--display); font-weight: 400; font-size: clamp(26px, 5vw, 38px);
+  color: var(--sun); -webkit-text-stroke: 6px var(--ink); paint-order: stroke fill; text-shadow: 0 3px 0 var(--ink);
+}
+.stats { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  display: flex; align-items: center; gap: 6px; background: var(--panel);
+  border: 2px solid var(--wood-dk); border-radius: 999px; padding: 4px 12px;
+  font-family: var(--display); font-size: 17px; font-variant-numeric: tabular-nums;
+}
+.chip .coin { width: 18px; height: 18px; border-radius: 50%; background: var(--coin); border: 2px solid var(--ink); display: grid; place-items: center; font-size: 11px; line-height: 1; }
+.xpbar { width: 70px; height: 9px; border-radius: 9px; background: #e8dcc0; border: 1.5px solid var(--ink); overflow: hidden; }
+.xpbar i { display: block; height: 100%; background: var(--leaf); width: 0; transition: width .3s; }
+.sunclock { width: 18px; height: 18px; }
+.chip.rain { background: #d7e9fb; }
+
+.scenes { display: flex; gap: 6px; }
+.scenes button {
+  flex: 0 1 auto; font-family: var(--display); font-size: 17px; color: var(--ink); cursor: pointer;
+  background: var(--panel); border: 2px solid var(--wood-dk); border-bottom-width: 4px; border-radius: 12px 12px 4px 4px;
+  padding: 6px 16px; display: flex; align-items: center; gap: 6px;
+}
+.scenes button[aria-selected="true"] { background: var(--sun); border-color: var(--ink); }
+.scenes svg { width: 22px; height: 22px; }
+
+.stage { position: relative; border: 3px solid var(--wood-dk); border-radius: 14px; overflow: hidden; background: #7fbf4a; }
+canvas#farm { display: block; width: 100%; touch-action: none; cursor: grab; }
+.camctl { position: absolute; right: 10px; bottom: 10px; display: flex; flex-direction: column; gap: 6px; }
+.camctl button { width: 40px; height: 40px; border-radius: 12px; background: var(--panel); border: 2px solid var(--ink); box-shadow: 0 2px 0 var(--ink); font-family: var(--display); font-size: 22px; line-height: 1; color: var(--ink); cursor: pointer; display: grid; place-items: center; padding: 0; }
+.camctl button svg { width: 24px; height: 24px; }
+.camctl button[aria-pressed="true"] { background: var(--sun); }
+.camctl button:focus-visible { outline: 3px solid var(--water); outline-offset: 2px; }
+.toast {
+  position: absolute; left: 50%; top: 12px; transform: translateX(-50%);
+  background: var(--panel); border: 2px solid var(--ink); border-radius: 12px;
+  padding: 6px 14px; font-family: var(--display); font-size: 16px; white-space: nowrap;
+  max-width: calc(100% - 24px); overflow: hidden; text-overflow: ellipsis;
+  box-shadow: 0 3px 0 var(--ink); transition: opacity .25s, transform .25s; pointer-events: none;
+}
+.toast.off { opacity: 0; transform: translate(-50%, -8px); }
+
+.shelf { display: flex; flex-wrap: wrap; gap: 8px; background: var(--wood); border: 3px solid var(--wood-dk); border-radius: 14px; padding: 8px; }
+.tool {
+  flex: 1 1 74px; min-width: 64px; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  background: var(--panel); border: 2px solid var(--wood-dk); border-radius: 10px; padding: 6px 4px 5px;
+  font-family: var(--display); font-size: 14px; color: var(--ink); cursor: pointer;
+  box-shadow: 0 3px 0 var(--wood-dk); transition: transform .08s;
+}
+.tool svg { width: 30px; height: 30px; }
+.tool kbd { font-family: var(--body); font-size: 10px; color: var(--muted); }
+.tool:hover { transform: translateY(-1px); }
+.tool:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--wood-dk); }
+.tool[aria-pressed="true"] { background: var(--sun); border-color: var(--ink); box-shadow: 0 3px 0 var(--ink); }
+.tool.shop { background: var(--coin); }
+.tool:focus-visible, .seed:focus-visible, .btn:focus-visible, .scenes button:focus-visible { outline: 3px solid var(--water); outline-offset: 2px; }
+
+.tray { display: flex; gap: 6px; overflow-x: auto; padding: 2px 2px 6px; }
+.seed {
+  flex: 0 0 auto; display: flex; align-items: center; gap: 6px; cursor: pointer;
+  background: var(--panel); border: 2px solid var(--wood-dk); border-radius: 999px;
+  padding: 3px 10px 3px 4px; font-family: var(--body); font-size: 13px; color: var(--ink);
+}
+.seed canvas { width: 32px; height: 32px; border-radius: 50%; background: #9a6a3f; }
+.seed.fish canvas { background: #5fb3c9; }
+.seed b { font-family: var(--display); font-weight: 400; font-variant-numeric: tabular-nums; }
+.seed[aria-pressed="true"] { border-color: var(--ink); background: #ffe2a8; box-shadow: 0 0 0 2px var(--sun); }
+.seed.locked { opacity: .5; }
+
+.howto { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; color: var(--muted); }
+.howto b { color: var(--ink); font-family: var(--display); font-weight: 400; }
+
+.veil { position: fixed; inset: 0; background: rgba(45,36,22,.45); display: grid; place-items: center; padding: 16px; z-index: 10; }
+.modal {
+  width: min(600px, 100%); max-height: calc(100% - 32px); overflow: auto;
+  background: var(--panel); border: 3px solid var(--ink); border-radius: 16px; box-shadow: 0 6px 0 var(--ink); padding: 16px;
+}
+.modal h2 { font-family: var(--display); font-weight: 400; font-size: 26px; margin: 0 0 4px; text-wrap: balance; }
+.modal p { margin: 0 0 10px; }
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 10px; }
+.tabs button { flex: 1 1 100px; }
+.rows { display: grid; gap: 6px; }
+.row { display: grid; grid-template-columns: 40px 1fr auto; gap: 10px; align-items: center; border: 2px solid #e6d6b0; border-radius: 10px; padding: 6px 8px; background: #fffbef; }
+.row canvas { width: 40px; height: 40px; border-radius: 8px; background: #9a6a3f; }
+.row canvas.fish { background: #5fb3c9; }
+.row canvas.build { background: #7fbf4a; }
+.row .meta { min-width: 0; }
+.row .meta b { font-family: var(--display); font-weight: 400; font-size: 17px; display: block; }
+.row .meta small { color: var(--muted); font-variant-numeric: tabular-nums; }
+.row .acts { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+.row.order { background: #fff1c7; border-color: var(--coin); }
+.up { color: var(--leaf); } .down { color: var(--danger); }
+.quests { display: grid; gap: 6px; }
+.qhead { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.qhead b { font-family: var(--display); font-weight: 400; font-size: 18px; }
+.qstreak { display: flex; gap: 4px; align-items: center; font-size: 13px; color: var(--muted); }
+.qstreak i { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--wood-dk); background: var(--panel); }
+.qstreak i.on { background: var(--coin); border-color: var(--ink); }
+.qrow { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 6px; scroll-snap-type: x mandatory; }
+.qcard {
+  flex: 1 0 210px; max-width: 320px; scroll-snap-align: start; display: grid; grid-template-columns: 44px 1fr; gap: 4px 10px; align-items: center;
+  background: var(--qbg); border: 2px solid var(--ink); border-radius: 14px; padding: 8px 10px; box-shadow: 0 3px 0 var(--ink);
+}
+.qcard .qic { width: 44px; height: 44px; border-radius: 12px; background: var(--qic); border: 2px solid var(--ink); display: grid; place-items: center; overflow: hidden; }
+.qcard .qic svg, .qcard .qic canvas { width: 34px; height: 34px; }
+.qcard .qt { font-family: var(--display); font-size: 16px; line-height: 1.2; min-width: 0; }
+.qcard .qt small { display: block; font-family: var(--body); font-size: 12px; color: var(--muted); }
+.qbar { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; }
+.qbar span { flex: 1; height: 10px; border-radius: 9px; background: rgba(255,255,255,.7); border: 1.5px solid var(--ink); overflow: hidden; }
+.qbar span i { display: block; height: 100%; background: var(--qic); transition: width .3s; }
+.qbar em { font-style: normal; font-family: var(--display); font-size: 14px; font-variant-numeric: tabular-nums; }
+.qcard.done { animation: qglow 1.2s ease-in-out infinite alternate; }
+.qcard .btn { grid-column: 1 / -1; }
+@keyframes qglow { from { box-shadow: 0 3px 0 var(--ink); } to { box-shadow: 0 3px 0 var(--ink), 0 0 0 4px var(--coin); } }
+@media (prefers-reduced-motion: reduce) { .qcard.done { animation: none; box-shadow: 0 3px 0 var(--ink), 0 0 0 4px var(--coin); } }
+input, select, textarea, .code { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
+.code { user-select: all; -webkit-user-select: all; }
+.reg { display: grid; gap: 10px; }
+.reg label.f { display: grid; gap: 4px; font-size: 14px; }
+.reg input:not([type="checkbox"]), .reg select {
+  font-family: var(--body); font-size: 16px; color: var(--ink); background: #fff;
+  border: 2px solid var(--wood-dk); border-radius: 10px; padding: 9px 12px; width: 100%;
+}
+.reg input:focus-visible, .reg select:focus-visible { outline: 3px solid var(--water); outline-offset: 1px; }
+.reg .check { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; line-height: 1.45; }
+.reg .check input { width: 20px; height: 20px; flex: 0 0 auto; margin-top: 1px; accent-color: var(--sun); }
+.reg .err { color: var(--danger); font-size: 14px; min-height: 1.2em; margin: 0; }
+.reg .btn { font-size: 18px; padding: 10px 14px; }
+.ladder { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 2px; }
+.ladder span { flex: 1 1 90px; text-align: center; background: #fff1c7; border: 2px solid var(--ink); border-radius: 12px; padding: 6px 4px; font-family: var(--display); font-size: 15px; line-height: 1.15; }
+.ladder span small { display: block; font-family: var(--body); font-size: 11px; color: var(--muted); }
+.coupon {
+  border: 2px dashed var(--ink); border-radius: 14px; background: #fff1c7; padding: 12px; text-align: center; display: grid; gap: 6px;
+}
+.coupon .code { font-family: var(--display); font-size: 30px; letter-spacing: .08em; }
+.coupon small { color: var(--muted); }
+.cprow { display: grid; grid-template-columns: 52px 1fr auto; gap: 10px; align-items: center; border: 2px solid #e6d6b0; border-radius: 12px; padding: 8px; background: #fffbef; }
+.cprow .lv { width: 52px; height: 52px; border-radius: 12px; background: var(--coin); border: 2px solid var(--ink); display: grid; place-items: center; font-family: var(--display); font-size: 15px; line-height: 1; text-align: center; }
+.cprow.locked .lv { background: #e8dcc0; }
+.cprow .meta { min-width: 0; }
+.cprow .meta b { font-family: var(--display); font-weight: 400; font-size: 18px; display: block; }
+.cprow .meta small { color: var(--muted); }
+.cprow .code { font-family: var(--display); font-size: 18px; letter-spacing: .05em; }
+.chip.cp { cursor: pointer; background: #fff1c7; font-size: 15px; }
+.chip.cp:focus-visible { outline: 3px solid var(--water); outline-offset: 2px; }
+.btn {
+  font-family: var(--display); font-size: 15px; color: var(--ink); cursor: pointer;
+  background: var(--coin); border: 2px solid var(--ink); border-radius: 9px; padding: 5px 10px; box-shadow: 0 2px 0 var(--ink);
+}
+.btn.ghost { background: #fff; }
+.btn.on { background: var(--sun); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.modal footer { display: flex; justify-content: space-between; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+
+@media (max-width: 560px) {
+  .tool { flex-basis: 46px; min-width: 46px; font-size: 12px; }
+  .tool svg { width: 24px; height: 24px; }
+  .tool kbd { display: none; }
+  .chip { font-size: 15px; padding: 3px 9px; }
+  .row { grid-template-columns: 36px 1fr; }
+  .row .acts { grid-column: 1 / -1; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="cabinet">
+  <header class="hud">
+    <div class="logo"><small>ZANA</small><b>Little Garden</b></div>
+    <div class="stats">
+      <div class="chip" title="เงิน"><span class="coin">฿</span><span id="money">0</span></div>
+      <div class="chip" title="เลเวล">Lv <span id="level">1</span><span class="xpbar"><i id="xp"></i></span></div>
+      <div class="chip" title="วันในฟาร์ม">
+        <svg class="sunclock" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="#fff6df" stroke="#2d2416" stroke-width="2"/><path id="clockhand" d="M10 10 L10 4" stroke="#2d2416" stroke-width="2" stroke-linecap="round"/></svg>
+        วันที่ <span id="day">1</span>
+      </div>
+      <button class="chip cp" id="couponChip" type="button">คูปอง <span id="couponNext"></span></button>
+      <div class="chip rain" id="rainChip" hidden>ฝนตก · รดน้ำให้ฟรี</div>
+    </div>
+  </header>
+
+  <section class="quests" aria-label="ภารกิจประจำวัน">
+    <div class="qhead"><b>ภารกิจประจำวัน</b><span class="qstreak" id="qstreak"></span></div>
+    <div class="qrow" id="qrow"></div>
+  </section>
+
+  <div class="scenes" role="tablist" aria-label="พื้นที่ฟาร์ม">
+    <button role="tab" id="tabField" aria-selected="true" data-scene="field"><svg viewBox="0 0 24 24"><path d="M3 20h18" stroke="#2d2416" stroke-width="2"/><path d="M8 20V12M8 14c-3 0-4-3-4-5 3 0 4 2 4 5zm0-2c0-3 2-5 5-5 0 3-2 5-5 5z" fill="#4f8a2c" stroke="#2d2416" stroke-width="1.5"/><circle cx="17" cy="16" r="3.4" fill="#e5352a" stroke="#2d2416" stroke-width="1.5"/></svg>แปลงผัก</button>
+    <button role="tab" id="tabPond" aria-selected="false" data-scene="pond"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="15" rx="10" ry="6" fill="#3d8fdc" stroke="#2d2416" stroke-width="1.5"/><path d="M7 14c3-3 7-3 9 0-2 3-6 3-9 0zm9 0l3-2v4z" fill="#f39a1e" stroke="#2d2416" stroke-width="1.2"/></svg>บ่อปลา</button>
+  </div>
+
+  <div class="stage" id="stage">
+    <canvas id="farm" width="960" height="600" aria-label="ฟาร์ม"></canvas>
+    <div class="camctl"><button id="zoomIn" aria-label="ซูมเข้า">+</button><button id="zoomOut" aria-label="ซูมออก">−</button><button id="followBtn" aria-label="กล้องตามชาวไร่" aria-pressed="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="4" fill="#f3c9a0" stroke="#2d2416" stroke-width="1.6"/><ellipse cx="12" cy="6" rx="7" ry="2.4" fill="#e8c56a" stroke="#2d2416" stroke-width="1.4"/><path d="M6 21c0-4 3-6 6-6s6 2 6 6z" fill="#e0563a" stroke="#2d2416" stroke-width="1.6"/></svg></button></div>
+    <div class="toast off" id="toast" role="status"></div>
+  </div>
+
+  <nav class="shelf" id="shelf" aria-label="เครื่องมือ"></nav>
+  <div class="tray" id="tray" aria-label="เมล็ดพันธุ์และลูกปลา"></div>
+  <div class="howto" id="howto"></div>
+</div>
+
+<div class="veil" id="veil" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle" id="modal"></div>
+</div>
+<script>
+(() => {
+'use strict';
+const DAY = 60, SAVE_KEY = 'zana-little-garden-v3';
+const stage = document.getElementById('stage');
+const cv = document.getElementById('farm');
+let ctx = cv.getContext('2d');
+
+/* ================= data ================= */
+const CROPS = [
+  { id: 'mg',         name: 'ผักบุ้ง',        lvl: 1,  cost: 4,  price: 11,  time: 18,  spots: 2 },
+  { id: 'radish',     name: 'หัวไชเท้า',      lvl: 1,  cost: 5,  price: 13,  time: 22,  spots: 4 },
+  { id: 'carrot',     name: 'แครอท',         lvl: 1,  cost: 7,  price: 18,  time: 28,  spots: 4 },
+  { id: 'lettuce',    name: 'ผักกาดหอม',      lvl: 2,  cost: 9,  price: 24,  time: 32,  spots: 2 },
+  { id: 'tomato',     name: 'มะเขือเทศ',      lvl: 2,  cost: 12, price: 32,  time: 42,  spots: 2 },
+  { id: 'corn',       name: 'ข้าวโพด',        lvl: 3,  cost: 15, price: 40,  time: 50,  spots: 2 },
+  { id: 'chili',      name: 'พริก',           lvl: 3,  cost: 14, price: 38,  time: 45,  spots: 2 },
+  { id: 'eggplant',   name: 'มะเขือม่วง',     lvl: 4,  cost: 18, price: 48,  time: 55,  spots: 2 },
+  { id: 'cucumber',   name: 'แตงกวา',        lvl: 4,  cost: 16, price: 44,  time: 50,  spots: 1 },
+  { id: 'cabbage',    name: 'กะหล่ำปลี',      lvl: 5,  cost: 22, price: 60,  time: 65,  spots: 1 },
+  { id: 'strawberry', name: 'สตรอว์เบอร์รี',  lvl: 5,  cost: 26, price: 72,  time: 70,  spots: 2 },
+  { id: 'pumpkin',    name: 'ฟักทอง',         lvl: 6,  cost: 30, price: 85,  time: 80,  spots: 1 },
+  { id: 'pineapple',  name: 'สับปะรด',        lvl: 7,  cost: 36, price: 100, time: 90,  spots: 1 },
+  { id: 'grape',      name: 'องุ่น',           lvl: 8,  cost: 45, price: 125, time: 100, spots: 1 },
+  { id: 'watermelon', name: 'แตงโม',          lvl: 9,  cost: 55, price: 155, time: 110, spots: 1 },
+  { id: 'papaya',     name: 'มะละกอ',         lvl: 10, cost: 65, price: 185, time: 120, spots: 1 },
+  { id: 'melon',      name: 'เมลอน',          lvl: 11, cost: 80, price: 230, time: 130, spots: 1 },
+];
+const FISH = [
+  { id: 'tilapia',  name: 'ปลานิล',        lvl: 3, cost: 10, price: 34,  time: 60 },
+  { id: 'catfish',  name: 'ปลาดุก',        lvl: 3, cost: 12, price: 40,  time: 70 },
+  { id: 'redtil',   name: 'ปลาทับทิม',     lvl: 4, cost: 18, price: 56,  time: 80 },
+  { id: 'prawn',    name: 'กุ้งก้ามกราม',  lvl: 6, cost: 30, price: 95,  time: 100 },
+  { id: 'snakehead',name: 'ปลาช่อน',       lvl: 7, cost: 34, price: 110, time: 110 },
+  { id: 'koi',      name: 'ปลาคาร์ป',      lvl: 9, cost: 60, price: 200, time: 140 },
+];
+const POND = [{ cost: 400, lvl: 3 }, { cost: 1200, lvl: 6 }, { cost: 2500, lvl: 9 }];
+const POND_CAP = 6;
+const UPGRADES = [
+  { id: 'sprinkler', name: 'สปริงเกอร์รดน้ำอัตโนมัติ', lvl: 5, cost: 1500, note: 'รดน้ำทุกแปลงให้เองเมื่อดินเริ่มแห้ง' },
+  { id: 'feeder',    name: 'เครื่องให้อาหารปลาอัตโนมัติ', lvl: 7, cost: 1800, note: 'เติมอาหารทุกบ่อให้เองเมื่ออาหารใกล้หมด' },
+];
+const CROP = Object.fromEntries(CROPS.map(c => [c.id, c]));
+const FISHM = Object.fromEntries(FISH.map(f => [f.id, f]));
+const ITEM = { ...CROP, ...FISHM };
+const isFish = id => !!FISHM[id];
+const xpNeed = l => 40 * l + 20 * l * l;
+const landCost = n => 60 + 30 * (n - 12) + Math.floor(Math.max(0, n - 24) ** 2 * 4);
+const BUYERS = ['ร้านป้าแดง', 'ครัวโรงเรียน', 'ตลาดนัดเช้า', 'ร้านส้มตำยายมา', 'โรงแรมริมน้ำ', 'ร้านข้าวต้มเฮียเส็ง'];
+
+function rollMarket() {
+  const m = {};
+  Object.keys(ITEM).forEach(id => { m[id] = Math.round((0.75 + Math.random() * 0.6) * 100) / 100; });
+  return m;
+}
+function newOrder(st) {
+  const pool = [
+    ...CROPS.filter(c => c.lvl <= st.level),
+    ...(st.ponds.some(p => p.dug) ? FISH.filter(f => f.lvl <= st.level) : []),
+  ];
+  const it = pool[Math.floor(Math.random() * pool.length)];
+  const qty = isFish(it.id) ? 2 + Math.floor(Math.random() * 3) : 3 + Math.floor(Math.random() * 6);
+  return { id: it.id, qty, reward: Math.round(it.price * qty * 1.5), xp: Math.round(it.price * qty / 3), who: BUYERS[Math.floor(Math.random() * BUYERS.length)], done: false };
+}
+function newState() {
+  const st = {
+    v: 3, money: 150, xp: 0, level: 1, day: 1, clock: 0, unlocked: 12, rain: 0,
+    seeds: { mg: 4, radish: 6, carrot: 4 }, fry: {}, barn: {}, market: rollMarket(), prevMarket: null,
+    plots: Array.from({ length: MAX_PLOTS }, () => ({ s: 'grass', w: 0 })),
+    ponds: POND.map(() => ({ dug: false, food: 0, fish: [] })),
+    up: { sprinkler: false, feeder: false },
+    mode: 'field', toolF: 'hoe', toolP: 'stock', seed: 'radish', fsel: 'tilapia', harvested: 0,
+  };
+  st.order = newOrder(st);
+  return st;
+}
+
+/* ================= colour + shape helpers ================= */
+const memo = new Map();
+const hx = h => { const n = parseInt(h.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; };
+function mix(a, b, k) {
+  k = Math.round(k * 20) / 20;
+  const key = a + b + k; let v = memo.get(key);
+  if (!v) { const A = hx(a), B = hx(b); v = '#' + A.map((x, i) => Math.round(x + (B[i] - x) * k).toString(16).padStart(2, '0')).join(''); memo.set(key, v); }
+  return v;
+}
+const lite = (c, k) => mix(c, '#ffffff', k), dark = (c, k) => mix(c, '#000000', k);
+const clamp01 = x => x < 0 ? 0 : x > 1 ? 1 : x;
+const seg = (g, a, b) => clamp01((g - a) / (b - a));
+const OUT = '#2d2416', LG = '#6cb83a', MG = '#4c9a2c', DG = '#367a22';
+function seeded(n) { let s = n; return () => (s = (s * 9301 + 49297) % 233280) / 233280; }
+
+function rr(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
+function stem(x0, y0, cx, cy, x1, y1, w, col) {
+  ctx.beginPath(); ctx.moveTo(x0, y0); ctx.quadraticCurveTo(cx, cy, x1, y1);
+  ctx.strokeStyle = col; ctx.lineWidth = w; ctx.lineCap = 'round'; ctx.stroke();
+}
+function leaf(x, y, len, wid, ang, col) {
+  if (len < 0.6) return;
+  ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+  ctx.beginPath(); ctx.moveTo(0, 0);
+  ctx.bezierCurveTo(wid, -len * 0.25, wid * 0.9, -len * 0.75, 0, -len);
+  ctx.bezierCurveTo(-wid * 0.9, -len * 0.75, -wid, -len * 0.25, 0, 0);
+  ctx.fillStyle = col; ctx.fill();
+  ctx.lineWidth = 0.7; ctx.strokeStyle = 'rgba(25,45,12,.55)'; ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, 0); ctx.bezierCurveTo(wid, -len * 0.25, wid * 0.9, -len * 0.75, 0, -len); ctx.lineTo(0, 0);
+  ctx.fillStyle = 'rgba(0,30,0,.14)'; ctx.fill();
+  ctx.beginPath(); ctx.moveTo(0, -len * 0.05); ctx.lineTo(0, -len * 0.92);
+  ctx.strokeStyle = 'rgba(235,255,210,.5)'; ctx.lineWidth = 0.6; ctx.stroke();
+  ctx.restore();
+}
+function heartLeaf(x, y, r, ang, col) {
+  if (r < 0.6) return;
+  ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+  ctx.beginPath(); ctx.moveTo(0, 0);
+  ctx.bezierCurveTo(r * 1.25, -r * 0.2, r * 0.9, -r * 1.5, 0, -r * 1.75);
+  ctx.bezierCurveTo(-r * 0.9, -r * 1.5, -r * 1.25, -r * 0.2, 0, 0);
+  ctx.fillStyle = col; ctx.fill(); ctx.lineWidth = 0.7; ctx.strokeStyle = 'rgba(25,45,12,.55)'; ctx.stroke();
+  ctx.strokeStyle = 'rgba(235,255,210,.45)'; ctx.lineWidth = 0.6;
+  ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -r * 1.6); ctx.moveTo(0, -r * 0.6); ctx.lineTo(r * 0.6, -r * 1.1); ctx.moveTo(0, -r * 0.6); ctx.lineTo(-r * 0.6, -r * 1.1); ctx.stroke();
+  ctx.restore();
+}
+function lobedLeaf(x, y, r, ang, col, lobes) {
+  if (r < 0.6) return;
+  ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+  ctx.beginPath();
+  const n = lobes * 2;
+  for (let k = 0; k <= n; k++) {
+    const th = -Math.PI / 2 + (k / n) * Math.PI * 2;
+    const rad = k % 2 ? r * 0.62 : r;
+    const px = Math.cos(th) * rad, py = Math.sin(th) * rad - r * 0.9;
+    k ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+  }
+  ctx.closePath(); ctx.fillStyle = col; ctx.fill(); ctx.lineWidth = 0.7; ctx.strokeStyle = 'rgba(25,45,12,.55)'; ctx.stroke();
+  ctx.strokeStyle = 'rgba(235,255,210,.4)'; ctx.lineWidth = 0.6; ctx.beginPath();
+  for (let k = 0; k < lobes; k++) { const th = -Math.PI / 2 + (k / lobes) * Math.PI * 2; ctx.moveTo(0, -r * 0.9); ctx.lineTo(Math.cos(th) * r * 0.85, Math.sin(th) * r * 0.85 - r * 0.9); }
+  ctx.stroke(); ctx.restore();
+}
+function fruit(x, y, rx, ry, col, rot) {
+  if (rx < 0.4) return;
+  ctx.save(); ctx.translate(x, y); if (rot) ctx.rotate(rot);
+  const g = ctx.createRadialGradient(-rx * 0.35, -ry * 0.35, Math.max(0.1, rx * 0.1), 0, 0, Math.max(rx, ry) * 1.05);
+  g.addColorStop(0, lite(col, 0.45)); g.addColorStop(0.45, col); g.addColorStop(1, dark(col, 0.3));
+  ctx.beginPath(); ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+  ctx.fillStyle = g; ctx.fill(); ctx.lineWidth = 0.8; ctx.strokeStyle = 'rgba(40,20,10,.55)'; ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.beginPath(); ctx.ellipse(-rx * 0.38, -ry * 0.42, rx * 0.22, ry * 0.14, -0.6, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+function flower(x, y, r, petal, center, n) {
+  if (r < 0.4) return;
+  n = n || 5; ctx.fillStyle = petal;
+  for (let k = 0; k < n; k++) { const a = k / n * Math.PI * 2; ctx.beginPath(); ctx.ellipse(x + Math.cos(a) * r * 0.7, y + Math.sin(a) * r * 0.7, r * 0.55, r * 0.38, a, 0, Math.PI * 2); ctx.fill(); }
+  ctx.fillStyle = center; ctx.beginPath(); ctx.arc(x, y, r * 0.38, 0, Math.PI * 2); ctx.fill();
+}
+function tendril(x, y, s, dir) {
+  ctx.beginPath(); ctx.moveTo(x, y);
+  for (let k = 0; k < 14; k++) { const a = k * 0.7, rad = s * (1 - k / 16); ctx.lineTo(x + dir * (k * s * 0.18 + Math.cos(a) * rad * 0.4), y - k * s * 0.08 + Math.sin(a) * rad * 0.4); }
+  ctx.strokeStyle = '#7cb44a'; ctx.lineWidth = 0.6; ctx.stroke();
+}
+function sparkle(x, y, s, col) {
+  ctx.beginPath();
+  for (let k = 0; k < 8; k++) { const rad = k % 2 ? s * 0.38 : s; const a = k * Math.PI / 4; ctx.lineTo(x + Math.cos(a) * rad, y + Math.sin(a) * rad); }
+  ctx.closePath(); ctx.fillStyle = col; ctx.fill();
+}
+function groundVine(len, dir) {
+  ctx.beginPath(); ctx.moveTo(0, 0); ctx.bezierCurveTo(dir * len * 0.3, -6, dir * len * 0.6, 4, dir * len, -2);
+  ctx.strokeStyle = '#5b9a33'; ctx.lineWidth = 1.6; ctx.lineCap = 'round'; ctx.stroke();
+}
+
+/* ================= crops: base at (0,0), grows upward to ~ -70 units ================= */
+const DRAW = {
+  mg(g) {
+    const a = seg(g, 0.06, 1), n = 3 + Math.round(a * 5);
+    for (let i = 0; i < n; i++) {
+      const t = n > 1 ? i / (n - 1) - 0.5 : 0, h = (10 + a * 46) * (0.78 + 0.22 * Math.cos(i * 1.7));
+      const cx = t * 10, cy = -h * 0.5, ex = t * 34 * a + t * 6, ey = -h;
+      stem(0, 0, cx, cy, ex, ey, 1.5, '#93cc63');
+      for (let k = 1; k <= 3; k++) {
+        const q = k / 3.6, px = 2 * (1 - q) * q * cx + q * q * ex, py = 2 * (1 - q) * q * cy + q * q * ey;
+        leaf(px, py, 4 + a * 10, (4 + a * 10) * 0.3, (k % 2 ? 1 : -1) * 0.95 + t, k % 2 ? LG : MG);
+      }
+      leaf(ex, ey, 3 + a * 9, (3 + a * 9) * 0.3, t * 1.3, '#78c447');
+    }
+  },
+  radish(g) {
+    const a = seg(g, 0.06, 1), r = seg(g, 0.35, 1);
+    for (let i = 0; i < 7; i++) { const ang = -1.15 + i * 0.38, len = (7 + a * 28) * (0.82 + 0.18 * Math.sin(i * 2.3)); leaf(0, -r * 7, len, len * 0.36, ang, i % 2 ? MG : LG); }
+    if (r > 0) {
+      fruit(0, -r * 4, 2 + r * 5.5, 2.5 + r * 7.5, '#f5f2e8');
+      ctx.fillStyle = 'rgba(140,200,100,.55)'; ctx.beginPath(); ctx.ellipse(0, -r * 9, 1.5 + r * 4, 1 + r * 2, 0, 0, Math.PI * 2); ctx.fill();
+    }
+  },
+  carrot(g) {
+    const a = seg(g, 0.06, 1), r = seg(g, 0.4, 1);
+    for (let i = 0; i < 5; i++) {
+      const ang = -0.8 + i * 0.4, len = 8 + a * 30;
+      ctx.save(); ctx.rotate(ang); stem(0, 0, 1, -len * 0.5, 0, -len, 1.2, '#5a9e2e');
+      for (let k = 1; k <= 5; k++) { const y = -len * k / 5.6, s = (1.6 + a * 3.4) * (1 - k / 7); leaf(0, y, s, s * 0.5, 1.15, LG); leaf(0, y, s, s * 0.5, -1.15, MG); }
+      ctx.restore();
+    }
+    if (r > 0) fruit(0, -1, 2 + r * 4.5, 1.5 + r * 3.2, '#f07a1a');
+  },
+  lettuce(g) {
+    const a = seg(g, 0.06, 1), R = 4 + a * 17;
+    for (let i = 0; i < 7; i++) { const ang = -1.4 + i * (2.8 / 6); ruffle(Math.sin(ang) * R * 0.55, -R * 0.3 - Math.cos(ang) * R * 0.25, R * 0.62, ang, i % 2 ? '#79c147' : '#8fd257'); }
+    for (let i = 0; i < 4; i++) { const ang = -0.8 + i * 0.53; ruffle(Math.sin(ang) * R * 0.25, -R * 0.55, R * 0.45, ang, '#b4df78'); }
+    ruffle(0, -R * 0.72, R * 0.32, 0, '#d6f0a0');
+  },
+  tomato(g) {
+    const a = seg(g, 0.06, 1), h = 8 + a * 52;
+    if (g > 0.2) { ctx.fillStyle = '#b48653'; ctx.fillRect(6, -64, 2.6, 64); ctx.strokeStyle = '#d9c8a0'; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(1, -h * 0.4); ctx.lineTo(8, -h * 0.4); ctx.moveTo(1, -h * 0.75); ctx.lineTo(8, -h * 0.75); ctx.stroke(); }
+    stem(0, 0, -4, -h * 0.5, 2, -h, 2.2, '#5f9a35');
+    const nodes = 2 + Math.round(a * 4);
+    for (let k = 1; k <= nodes; k++) { const q = k / (nodes + 0.4), y = -h * q, x = -8 * q * (1 - q) + 2 * q * q; compound(x, y, 4 + a * 8 * (1 - q * 0.4), k % 2 ? 1 : -1); }
+    const fl = g > 0.42 && g < 0.8, fr = seg(g, 0.55, 0.85), rp = seg(g, 0.8, 1);
+    const pts = [[-8, 0.42], [7, 0.55], [-4, 0.7], [9, 0.32], [-10, 0.25]];
+    if (fl) pts.slice(0, 3).forEach(([x, q]) => flower(x, -h * q - 3, 2.6, '#ffd84a', '#e8a51a'));
+    if (fr > 0) { const col = mix('#7cbf3c', '#e5352a', rp); pts.forEach(([x, q]) => { fruit(x, -h * q, 1.6 + fr * 4.4, 1.5 + fr * 4.1, col); ctx.fillStyle = DG; ctx.beginPath(); ctx.arc(x, -h * q - (1.5 + fr * 4.1), 1.1, 0, 7); ctx.fill(); }); }
+  },
+  corn(g) {
+    const a = seg(g, 0.06, 1), h = 10 + a * 64;
+    stem(0, 0, 1, -h * 0.5, 0, -h, 3, '#78b443');
+    const n = 2 + Math.round(a * 4);
+    for (let k = 0; k < n; k++) arcLeaf(0, -h * (0.15 + k * 0.72 / n), 10 + a * 20, k % 2 ? 1 : -1, k % 2 ? LG : MG);
+    if (g > 0.6) { ctx.strokeStyle = '#d9c27a'; ctx.lineWidth = 1.1; for (let k = -2; k <= 2; k++) { ctx.beginPath(); ctx.moveTo(0, -h); ctx.quadraticCurveTo(k * 3, -h - 6, k * 5, -h - 3); ctx.stroke(); } }
+    const cb = seg(g, 0.5, 0.9), op = seg(g, 0.85, 1);
+    if (cb > 0) {
+      ctx.save(); ctx.translate(3, -h * 0.5); ctx.rotate(0.35);
+      if (op > 0) { fruit(0, -1, (2 + cb * 3.6) * 0.8, (4 + cb * 9) * 0.9, '#f6cf3c'); ctx.fillStyle = 'rgba(190,130,20,.45)'; for (let yy = -8; yy <= 6; yy += 2.6) for (let xx = -2; xx <= 2; xx += 2) { ctx.beginPath(); ctx.arc(xx, yy, 0.55, 0, 7); ctx.fill(); } }
+      ctx.beginPath(); ctx.moveTo(0, 6 + cb * 6); ctx.quadraticCurveTo(-(2 + cb * 4) * (1 + op), 0, -1, -4 - cb * 9); ctx.quadraticCurveTo(-(1 + cb * 2) * (1 - op), 0, 0, 6 + cb * 6);
+      ctx.moveTo(0, 6 + cb * 6); ctx.quadraticCurveTo((2 + cb * 4) * (1 + op), 0, 1, -4 - cb * 9); ctx.quadraticCurveTo((1 + cb * 2) * (1 - op), 0, 0, 6 + cb * 6);
+      ctx.fillStyle = '#8fc455'; ctx.fill(); ctx.strokeStyle = 'rgba(25,45,12,.5)'; ctx.lineWidth = 0.6; ctx.stroke();
+      ctx.strokeStyle = '#a0662a'; ctx.lineWidth = 0.8; for (let k = -1; k <= 1; k++) { ctx.beginPath(); ctx.moveTo(0, -4 - cb * 9); ctx.quadraticCurveTo(k * 3, -8 - cb * 9, k * 4, -6 - cb * 10); ctx.stroke(); }
+      ctx.restore();
+    }
+  },
+  chili(g) {
+    const a = seg(g, 0.06, 1), h = 6 + a * 36;
+    stem(0, 0, 0, -h * 0.5, 0, -h, 1.8, '#4f8a2c');
+    stem(0, -h * 0.4, -6 * a, -h * 0.6, -13 * a, -h * 0.85, 1.3, '#4f8a2c');
+    stem(0, -h * 0.5, 6 * a, -h * 0.7, 13 * a, -h * 0.92, 1.3, '#4f8a2c');
+    const lv = [[0, -h, 0], [-13 * a, -h * 0.85, -0.8], [13 * a, -h * 0.92, 0.8], [-6 * a, -h * 0.62, -1.4], [6 * a, -h * 0.72, 1.4], [0, -h * 0.55, 0.3], [-3, -h * 0.3, -1.2], [3, -h * 0.35, 1.2]];
+    lv.forEach(([x, y, r], k) => { leaf(x, y, 4 + a * 7, (4 + a * 7) * 0.38, r, k % 2 ? MG : LG); leaf(x, y, 3 + a * 5, (3 + a * 5) * 0.38, r + 0.7, LG); });
+    if (g > 0.4 && g < 0.72) lv.slice(1, 5).forEach(([x, y]) => flower(x, y + 3, 1.6, '#fbfbf2', '#e2d36b'));
+    const fr = seg(g, 0.5, 0.85), rp = seg(g, 0.78, 1);
+    if (fr > 0) {
+      const col = mix('#4caf3a', '#e0281e', rp);
+      lv.slice(1, 7).forEach(([x, y], k) => { const len = 3 + fr * 11, xx = x + (k % 2 ? 2 : -2), yy = y + 2;
+        ctx.beginPath(); ctx.moveTo(xx - 1.4, yy); ctx.quadraticCurveTo(xx + 2.5, yy + len * 0.6, xx + (k % 2 ? 2 : -2), yy + len); ctx.quadraticCurveTo(xx - 1, yy + len * 0.5, xx + 1.4, yy);
+        ctx.fillStyle = col; ctx.fill(); ctx.strokeStyle = 'rgba(60,10,5,.5)'; ctx.lineWidth = 0.6; ctx.stroke();
+        ctx.fillStyle = DG; ctx.fillRect(xx - 1.2, yy - 1, 2.4, 1.6); });
+    }
+  },
+  eggplant(g) {
+    const a = seg(g, 0.06, 1), h = 6 + a * 40;
+    stem(0, 0, -2, -h * 0.5, 0, -h, 2.4, '#5c4b6e');
+    const lv = [[0, -h, 0.1], [0, -h * 0.75, -1.1], [0, -h * 0.6, 1.1], [0, -h * 0.4, -1.3], [0, -h * 0.3, 1.3]];
+    lv.forEach(([x, y, r], k) => leaf(x, y, 6 + a * 13, (6 + a * 13) * 0.5, r, k % 2 ? '#4f8a3c' : '#5c9846'));
+    if (g > 0.42 && g < 0.75) [[-6, -h * 0.55], [6, -h * 0.45]].forEach(([x, y]) => flower(x, y, 2.4, '#b38ad9', '#f2d33a', 6));
+    const fr = seg(g, 0.52, 0.9), rp = seg(g, 0.75, 1);
+    if (fr > 0) {
+      const col = mix('#a97fd0', '#4f1f78', rp);
+      [[-7, -h * 0.5, 0.25], [7, -h * 0.42, -0.25], [-1, -h * 0.28, 0.08]].forEach(([x, y, r]) => {
+        fruit(x, y + 3 + fr * 9, 1.8 + fr * 3.4, 3 + fr * 9, col, r);
+        ctx.fillStyle = '#4c7a34'; ctx.beginPath(); ctx.ellipse(x, y + 2, 2.4, 1.8, 0, 0, 7); ctx.fill();
+      });
+    }
+  },
+  cucumber(g) {
+    const a = seg(g, 0.06, 1), h = 10 + a * 58;
+    if (g > 0.1) {
+      ctx.fillStyle = '#c9a86a'; ctx.strokeStyle = '#8a6a3a'; ctx.lineWidth = 0.6;
+      [-16, 16].forEach(x => { ctx.fillRect(x - 1.5, -70, 3, 70); for (let y = -60; y < 0; y += 14) { ctx.beginPath(); ctx.moveTo(x - 1.5, y); ctx.lineTo(x + 1.5, y); ctx.stroke(); } });
+      ctx.strokeStyle = 'rgba(240,230,200,.8)'; ctx.lineWidth = 0.6; for (let y = -64; y < -6; y += 10) { ctx.beginPath(); ctx.moveTo(-16, y); ctx.lineTo(16, y); ctx.stroke(); }
+    }
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.bezierCurveTo(-10, -h * 0.3, 10, -h * 0.6, -3, -h); ctx.strokeStyle = '#5b9a33'; ctx.lineWidth = 1.8; ctx.stroke();
+    for (let k = 1; k <= 6; k++) { const q = k / 6.4, x = Math.sin(q * 6) * 7, y = -h * q; heartLeaf(x, y, 3 + a * 6 * (1 - q * 0.3), (k % 2 ? 1 : -1) * 0.9, k % 2 ? LG : MG); if (k % 2 && a > 0.4) tendril(x, y, 4, k % 4 ? 1 : -1); }
+    if (g > 0.4 && g < 0.72) [[-8, -h * 0.45], [7, -h * 0.65]].forEach(([x, y]) => flower(x, y, 2.4, '#ffd93b', '#e9a11c'));
+    const fr = seg(g, 0.5, 0.9), rp = seg(g, 0.7, 1);
+    if (fr > 0) {
+      const col = mix('#bfe382', '#3d8a2c', rp);
+      [[-9, -h * 0.55, 0.15], [8, -h * 0.4, -0.1], [-2, -h * 0.75, 0.05]].forEach(([x, y, r]) => {
+        fruit(x, y + 4 + fr * 8, 1.6 + fr * 2.4, 3 + fr * 9.5, col, r);
+        ctx.fillStyle = 'rgba(255,255,230,.6)'; for (let k = 0; k < 4; k++) { ctx.beginPath(); ctx.arc(x + (k % 2 ? 1 : -1), y + 2 + k * 3 * fr + 3, 0.45, 0, 7); ctx.fill(); }
+      });
+    }
+  },
+  cabbage(g) {
+    const a = seg(g, 0.06, 1), R = 5 + a * 24, hd = seg(g, 0.35, 1);
+    for (let i = 0; i < 7; i++) {
+      const ang = -1.5 + i * 0.5, x = Math.sin(ang) * R * 0.62, y = -R * 0.3 - Math.cos(ang) * R * 0.22;
+      ctx.save(); ctx.translate(x, y); ctx.rotate(ang * 0.6);
+      ctx.beginPath(); ctx.ellipse(0, -R * 0.15, R * 0.5, R * 0.42, 0, 0, 7); ctx.fillStyle = i % 2 ? '#79a98a' : '#8bbb98'; ctx.fill();
+      ctx.strokeStyle = 'rgba(25,45,30,.45)'; ctx.lineWidth = 0.7; ctx.stroke();
+      ctx.strokeStyle = 'rgba(230,245,235,.75)'; ctx.lineWidth = 0.9; ctx.beginPath(); ctx.moveTo(0, R * 0.2); ctx.lineTo(0, -R * 0.5);
+      for (let k = -1; k <= 1; k += 2) { ctx.moveTo(0, -R * 0.05); ctx.lineTo(k * R * 0.3, -R * 0.35); ctx.moveTo(0, R * 0.1); ctx.lineTo(k * R * 0.35, -R * 0.1); }
+      ctx.stroke(); ctx.restore();
+    }
+    if (hd > 0) {
+      const hr = 2 + R * 0.42 * hd; fruit(0, -R * 0.45, hr, hr * 0.92, '#cfe8b4');
+      ctx.strokeStyle = 'rgba(120,160,110,.7)'; ctx.lineWidth = 0.8;
+      ctx.beginPath(); ctx.arc(-hr * 0.3, -R * 0.45, hr * 0.85, -1.2, 1.2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(hr * 0.35, -R * 0.45, hr * 0.8, 1.9, 4.4); ctx.stroke();
+    }
+  },
+  strawberry(g) {
+    const a = seg(g, 0.06, 1);
+    for (let i = 0; i < 5; i++) {
+      const ang = -1.1 + i * 0.55, L2 = 5 + a * 17, ex = Math.sin(ang) * L2, ey = -Math.cos(ang) * L2 * 0.9;
+      stem(0, 0, ex * 0.4, ey * 0.7, ex, ey, 1, '#6a9a3a');
+      [-0.7, 0, 0.7].forEach(o => { const r = 2 + a * 4.2; ctx.save(); ctx.translate(ex, ey); ctx.rotate(ang + o); ctx.beginPath(); ctx.ellipse(0, -r, r * 0.75, r, 0, 0, 7); ctx.fillStyle = o ? MG : LG; ctx.fill(); ctx.strokeStyle = 'rgba(25,45,12,.5)'; ctx.lineWidth = 0.6; ctx.stroke(); ctx.strokeStyle = 'rgba(235,255,210,.45)'; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -r * 1.8); ctx.stroke(); ctx.restore(); });
+    }
+    if (g > 0.35 && g < 0.7) [[-9, -10], [8, -14], [0, -20]].forEach(([x, y]) => flower(x, y, 2.6, '#ffffff', '#f2cf2a'));
+    const fr = seg(g, 0.5, 0.85), rp = seg(g, 0.75, 1);
+    if (fr > 0) {
+      const col = mix('#e6efb0', '#e3263c', rp);
+      [[-11, -4], [10, -6], [-2, -2]].forEach(([x, y]) => {
+        const s = 1.6 + fr * 4.2;
+        ctx.beginPath(); ctx.moveTo(x - s, y - s * 0.4); ctx.quadraticCurveTo(x, y - s * 1.3, x + s, y - s * 0.4); ctx.quadraticCurveTo(x + s * 0.9, y + s * 0.8, x, y + s * 1.4); ctx.quadraticCurveTo(x - s * 0.9, y + s * 0.8, x - s, y - s * 0.4);
+        const gr = ctx.createRadialGradient(x - s * 0.3, y - s * 0.3, 0.2, x, y, s * 1.4); gr.addColorStop(0, lite(col, 0.35)); gr.addColorStop(1, dark(col, 0.2));
+        ctx.fillStyle = gr; ctx.fill(); ctx.strokeStyle = 'rgba(70,10,10,.5)'; ctx.lineWidth = 0.6; ctx.stroke();
+        ctx.fillStyle = '#ffe37a'; for (let k = 0; k < 6; k++) { ctx.beginPath(); ctx.arc(x + ((k * 37) % 7 - 3) * s * 0.22, y + ((k * 23) % 7 - 2) * s * 0.2, 0.45, 0, 7); ctx.fill(); }
+        flower(x, y - s * 0.75, 1.5, '#4f8a2c', '#3c7a22', 5);
+      });
+    }
+  },
+  pumpkin(g) {
+    const a = seg(g, 0.06, 1);
+    groundVine(10 + a * 30, -1); groundVine(10 + a * 30, 1);
+    [[-1, 0.35], [1, 0.45], [-1, 0.85], [1, 0.95]].forEach(([d, q]) => lobedLeaf(d * (10 + a * 30) * q, -2, 3 + a * 9, d * 0.4, q > 0.6 ? MG : LG, 5));
+    if (a > 0.4) { tendril(-a * 26, -4, 4, -1); tendril(a * 26, -4, 4, 1); }
+    if (g > 0.35 && g < 0.62) [[-a * 16, -14], [a * 20, -12]].forEach(([x, y]) => flower(x, y, 3.6, '#ffc21a', '#f08a1c'));
+    const fr = seg(g, 0.45, 0.85), rp = seg(g, 0.7, 1);
+    if (fr > 0) {
+      const col = mix('#7da84a', '#f0891c', rp), rx = 3 + fr * 16, ry = 2.5 + fr * 11, y = -ry * 0.9;
+      [-0.62, 0.62, -0.32, 0.32, 0].forEach(o => fruit(o * rx * 0.8, y, rx * (0.48 - Math.abs(o) * 0.1), ry, col));
+      ctx.fillStyle = '#7a5a2a'; ctx.fillRect(-1.2, y - ry - 3, 2.4, 4);
+    }
+  },
+  pineapple(g) {
+    const a = seg(g, 0.06, 1), fr = seg(g, 0.45, 0.85), rp = seg(g, 0.7, 1);
+    const back = [-1.3, -0.95, 0.95, 1.3, -0.6, 0.6];
+    back.forEach((ang, k) => leaf(0, 0, (8 + a * 28) * (1 - Math.abs(ang) * 0.18), 2.6, ang, k % 2 ? '#5d9a6e' : '#4c8560'));
+    if (fr > 0) {
+      const rx = 2 + fr * 7.5, ry = 3 + fr * 10.5, y = -6 - fr * 12, col = mix('#5f9a4a', '#f0b429', rp);
+      ctx.save(); ctx.translate(0, y);
+      ctx.beginPath(); ctx.ellipse(0, 0, rx, ry, 0, 0, 7);
+      const gr = ctx.createRadialGradient(-rx * 0.3, -ry * 0.3, 0.3, 0, 0, ry); gr.addColorStop(0, lite(col, 0.35)); gr.addColorStop(1, dark(col, 0.25));
+      ctx.fillStyle = gr; ctx.fill(); ctx.save(); ctx.clip();
+      ctx.strokeStyle = 'rgba(90,50,10,.55)'; ctx.lineWidth = 0.7;
+      for (let k = -14; k <= 14; k += 3.2) { ctx.beginPath(); ctx.moveTo(k - 10, -14); ctx.lineTo(k + 10, 14); ctx.moveTo(k + 10, -14); ctx.lineTo(k - 10, 14); ctx.stroke(); }
+      ctx.restore(); ctx.strokeStyle = 'rgba(60,30,10,.6)'; ctx.stroke();
+      for (let k = -2; k <= 2; k++) leaf(0, -ry + 1, 3 + fr * 6 - Math.abs(k) * 1.2, 1.4, k * 0.35, '#4f8f5e');
+      ctx.restore();
+    }
+    [-0.3, 0.2, 0, -1.1, 1.1].forEach((ang, k) => leaf(0, 1, (6 + a * 20) * (1 - Math.abs(ang) * 0.2), 2.4, ang, k % 2 ? '#6aa679' : '#58926a'));
+  },
+  grape(g) {
+    const a = seg(g, 0.06, 1), h = 10 + a * 50;
+    if (g > 0.08) {
+      ctx.fillStyle = '#9a6b3c'; ctx.fillRect(-2, -66, 4, 66); ctx.fillRect(-30, -66, 60, 3.5);
+      ctx.strokeStyle = 'rgba(60,40,20,.6)'; ctx.lineWidth = 0.6; ctx.strokeRect(-2, -66, 4, 66); ctx.strokeRect(-30, -66, 60, 3.5);
+    }
+    ctx.beginPath(); ctx.moveTo(4, 0); for (let k = 1; k <= 8; k++) ctx.lineTo(4 + Math.sin(k * 1.3) * 1.6, -h * k / 8); ctx.strokeStyle = '#7a5532'; ctx.lineWidth = 2.2; ctx.stroke();
+    const arm = seg(g, 0.3, 0.7) * 26;
+    if (arm > 0) { stem(4, -62, -arm * 0.5, -66, -arm, -63, 1.6, '#7a5532'); stem(4, -62, arm * 0.5, -66, arm, -63, 1.6, '#7a5532'); }
+    [[4, -h * 0.4, -1], [4, -h * 0.7, 1], [-arm * 0.5, -64, -0.3], [-arm, -63, -0.6], [arm * 0.5, -64, 0.3], [arm, -63, 0.6], [4, -64, 0]].forEach(([x, y, r], k) => lobedLeaf(x, y, 3 + a * 6.5, r + Math.PI * (y < -60 ? 0 : 0), k % 2 ? '#5d9b3a' : '#6aab45', 5));
+    const fr = seg(g, 0.5, 0.85), rp = seg(g, 0.72, 1);
+    if (fr > 0) {
+      const col = mix('#b5d77a', '#5b2a86', rp), br = 1.2 + fr * 1.9;
+      [-16, 0, 16].forEach(cx => { const top = -60; stem(cx, top - 2, cx, top, cx, top + 2, 0.8, '#7a5532');
+        [[4, 0], [3, 1], [2, 2], [1, 3]].forEach(([n, row]) => { for (let k = 0; k < n; k++) fruit(cx + (k - (n - 1) / 2) * br * 1.7, top + 3 + row * br * 1.6, br, br, col); }); });
+    }
+  },
+  watermelon(g) {
+    const a = seg(g, 0.06, 1);
+    groundVine(10 + a * 32, -1); groundVine(10 + a * 32, 1);
+    [[-1, 0.3], [1, 0.42], [-1, 0.75], [1, 0.9], [-1, 1]].forEach(([d, q], k) => lobedLeaf(d * (10 + a * 32) * q, -1, 3 + a * 7, d * 0.5, k % 2 ? '#4f8f3a' : '#5c9e44', 7));
+    if (g > 0.35 && g < 0.6) [[-a * 14, -9], [a * 18, -8]].forEach(([x, y]) => flower(x, y, 2.2, '#ffe14a', '#e9a11c'));
+    const fr = seg(g, 0.45, 0.9), rp = seg(g, 0.85, 1);
+    if (fr > 0) {
+      const rx = 4 + fr * 19, ry = 3 + fr * 12, y = -ry * 0.85;
+      fruit(0, y, rx, ry, mix('#78c255', '#4f9e3a', rp));
+      ctx.save(); ctx.beginPath(); ctx.ellipse(0, y, rx, ry, 0, 0, 7); ctx.clip();
+      ctx.strokeStyle = 'rgba(25,80,25,.75)'; ctx.lineWidth = 1.6 + fr;
+      for (let k = -3; k <= 3; k++) { ctx.beginPath(); for (let s = -1; s <= 1.01; s += 0.2) ctx.lineTo(k * rx * 0.28 + Math.sin(s * 9 + k) * 1.2, y + s * ry); ctx.stroke(); }
+      if (rp > 0) { ctx.fillStyle = 'rgba(245,220,120,' + rp * 0.7 + ')'; ctx.beginPath(); ctx.ellipse(rx * 0.2, y + ry * 0.75, rx * 0.4, ry * 0.25, 0, 0, 7); ctx.fill(); }
+      ctx.restore();
+    }
+  },
+  papaya(g) {
+    const a = seg(g, 0.06, 1), h = 8 + a * 56;
+    ctx.beginPath(); ctx.moveTo(-3, 0); ctx.lineTo(-1.6, -h); ctx.lineTo(1.6, -h); ctx.lineTo(3, 0); ctx.closePath();
+    ctx.fillStyle = '#a6a77c'; ctx.fill(); ctx.strokeStyle = 'rgba(60,60,30,.6)'; ctx.lineWidth = 0.6; ctx.stroke();
+    ctx.strokeStyle = 'rgba(80,80,40,.5)'; for (let y = -6; y > -h; y -= 5) { ctx.beginPath(); ctx.moveTo(-2.2, y); ctx.lineTo(2.2, y - 1); ctx.stroke(); }
+    const n = 5 + Math.round(a * 3);
+    for (let k = 0; k < n; k++) {
+      const ang = -1.7 + k * (3.4 / (n - 1)), len = 8 + a * 18, ex = Math.sin(ang) * len, ey = -h - Math.cos(ang) * len * 0.7;
+      stem(0, -h, ex * 0.5, ey - 3, ex, ey, 1, '#b7c27a');
+      for (let j = -2; j <= 2; j++) leaf(ex, ey, 3 + a * 7, (3 + a * 7) * 0.32, ang + j * 0.42, j % 2 ? MG : LG);
+    }
+    const fr = seg(g, 0.45, 0.85), rp = seg(g, 0.7, 1);
+    if (fr > 0) { const col = mix('#5e9e3a', '#f5a623', rp); [[-4, 0.5], [4, 0.4], [-2, 0.2], [3, 0.95]].forEach(([x, o]) => fruit(x, -h + 4 + o * 6 + fr * 4, 1.6 + fr * 3, 2.4 + fr * 5.5, col, x * 0.05)); }
+  },
+  melon(g) {
+    const a = seg(g, 0.06, 1);
+    groundVine(10 + a * 30, -1); groundVine(10 + a * 30, 1);
+    [[-1, 0.35], [1, 0.45], [-1, 0.85], [1, 0.95]].forEach(([d, q], k) => heartLeaf(d * (10 + a * 30) * q, -1, 3 + a * 6.5, d * 0.7, k % 2 ? LG : MG));
+    if (a > 0.4) { tendril(-a * 22, -3, 4, -1); tendril(a * 24, -3, 4, 1); }
+    if (g > 0.35 && g < 0.6) [[-a * 14, -9], [a * 16, -9]].forEach(([x, y]) => flower(x, y, 2.2, '#ffe14a', '#e9a11c'));
+    const fr = seg(g, 0.45, 0.88), rp = seg(g, 0.75, 1);
+    if (fr > 0) {
+      const r = 3 + fr * 12.5, y = -r * 0.9;
+      fruit(0, y, r, r * 0.95, mix('#a9c77f', '#e2be66', rp));
+      ctx.save(); ctx.beginPath(); ctx.arc(0, y, r, 0, 7); ctx.clip();
+      ctx.strokeStyle = 'rgba(250,245,220,.75)'; ctx.lineWidth = 0.55;
+      for (let k = -r; k <= r; k += 2.4) { ctx.beginPath(); ctx.moveTo(k, y - r); ctx.quadraticCurveTo(k + 3, y, k - 1, y + r); ctx.stroke(); ctx.beginPath(); ctx.moveTo(-r, y + k); ctx.quadraticCurveTo(0, y + k + 3, r, y + k - 1); ctx.stroke(); }
+      ctx.restore();
+      ctx.fillStyle = '#6b8a3a'; ctx.fillRect(-0.8, y - r - 2.5, 1.6, 3);
+    }
+  },
+};
+function ruffle(x, y, r, ang, col) {
+  if (r < 0.6) return;
+  ctx.save(); ctx.translate(x, y); ctx.rotate(ang * 0.3); ctx.beginPath();
+  for (let k = 0; k <= 18; k++) { const th = Math.PI + k / 18 * Math.PI, rad = r * (1 + 0.09 * Math.sin(k * 2.6)); ctx.lineTo(Math.cos(th) * rad, Math.sin(th) * rad * 1.1); }
+  ctx.closePath(); ctx.fillStyle = col; ctx.fill(); ctx.strokeStyle = 'rgba(30,60,15,.45)'; ctx.lineWidth = 0.7; ctx.stroke();
+  ctx.strokeStyle = 'rgba(250,255,230,.55)'; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -r * 0.9); ctx.stroke();
+  ctx.restore();
+}
+function compound(x, y, s, dir) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(dir * 1.0);
+  stem(0, 0, 0, -s * 0.5, 0, -s * 1.4, 0.9, '#5f9a35');
+  leaf(0, -s * 1.4, s * 0.62, s * 0.34, 0, MG);
+  for (let k = 1; k <= 2; k++) { leaf(0, -s * 0.48 * k, s * 0.55, s * 0.3, 1.05, LG); leaf(0, -s * 0.48 * k, s * 0.55, s * 0.3, -1.05, MG); }
+  ctx.restore();
+}
+function arcLeaf(x, y, len, dir, col) {
+  ctx.beginPath(); ctx.moveTo(x, y);
+  ctx.quadraticCurveTo(x + dir * len * 0.55, y - len * 0.6, x + dir * len, y - len * 0.12);
+  ctx.quadraticCurveTo(x + dir * len * 0.5, y - len * 0.38, x, y + 2.6);
+  ctx.fillStyle = col; ctx.fill(); ctx.strokeStyle = 'rgba(25,45,12,.5)'; ctx.lineWidth = 0.7; ctx.stroke();
+}
+function seedMound() {
+  ctx.fillStyle = '#5b3a1e'; ctx.beginPath(); ctx.ellipse(0, 0, 8, 3.2, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = '#e7c98f'; [[-3, -1], [2, 0], [0, -2], [4, -1.5]].forEach(([a, b]) => { ctx.beginPath(); ctx.arc(a, b, 1.2, 0, 7); ctx.fill(); });
+}
+function sprout(g) {
+  const s = seg(g, 0.04, 0.12) * 0.7 + 0.3;
+  stem(0, 0, 0, -3 * s, 0, -6 * s, 1.2, '#7cc04a');
+  leaf(0, -6 * s, 5 * s, 3 * s, -1.0, LG); leaf(0, -6 * s, 5 * s, 3 * s, 1.0, MG);
+}
+function deadPlant(g) {
+  const a = Math.max(0.35, seg(g, 0.06, 1));
+  ctx.strokeStyle = '#7d6a3a'; ctx.lineWidth = 1.6; ctx.lineCap = 'round';
+  for (const d of [-1.2, -0.4, 0.4, 1.2]) {
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(d * 6 * a, -18 * a, d * 13 * a + 2, -7 * a); ctx.stroke();
+    leaf(d * 13 * a + 2, -7 * a, 5 * a, 2.2 * a, d > 0 ? 2.4 : -2.4, '#8b7442');
+  }
+}
+function drawPlant(id, g, dead) {
+  if (dead) { deadPlant(g); return; }
+  if (g < 0.04) { seedMound(); return; }
+  if (g < 0.12) { sprout(g); return; }
+  ctx.fillStyle = 'rgba(30,20,5,.22)'; ctx.beginPath(); ctx.ellipse(0, 1, 6 + g * 14, 2.5 + g * 3, 0, 0, 7); ctx.fill();
+  DRAW[id](g);
+}
+const SPOTS = {
+  1: [[0.5, 0.86, 1.05]],
+  2: [[0.28, 0.84, 0.82], [0.72, 0.84, 0.82]],
+  4: [[0.27, 0.48, 0.62], [0.73, 0.48, 0.62], [0.27, 0.9, 0.62], [0.73, 0.9, 0.62]],
+};
+
+/* ================= fish (top view, facing +x) ================= */
+function drawFish(id, s, wag, seed) {
+  ctx.save(); ctx.scale(s, s);
+  if (id === 'prawn') {
+    ctx.strokeStyle = 'rgba(40,60,90,.8)'; ctx.lineWidth = 0.5;
+    ctx.beginPath(); ctx.moveTo(10, -1); ctx.quadraticCurveTo(26, -10 + wag * 4, 34, -6); ctx.moveTo(10, 1); ctx.quadraticCurveTo(26, 10 - wag * 4, 34, 6); ctx.stroke();
+    [-1, 1].forEach(d => { ctx.strokeStyle = '#3d6fb0'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(8, d * 2); ctx.quadraticCurveTo(16, d * 6, 22, d * 4); ctx.stroke(); fruit(23, d * 4, 3.4, 1.4, '#3d6fb0', d * 0.2); });
+    for (let k = 0; k < 6; k++) fruit(6 - k * 3.4, 0, 4.2 - k * 0.35, 3.8 - k * 0.3, k ? '#8fb0c8' : '#7da2bf');
+    ctx.save(); ctx.translate(-14, 0); ctx.rotate(wag * 0.5); ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-6, -4); ctx.lineTo(-7, 0); ctx.lineTo(-6, 4); ctx.closePath(); ctx.fillStyle = '#9bbad0'; ctx.fill(); ctx.restore();
+    ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(9, -2, 0.8, 0, 7); ctx.arc(9, 2, 0.8, 0, 7); ctx.fill();
+    ctx.restore(); return;
+  }
+  const P = {
+    tilapia:   { body: '#7f8c74', belly: '#b9c0a8', fin: '#6b7a62', len: 13, wid: 5.2 },
+    redtil:    { body: '#e46e55', belly: '#f6b7a0', fin: '#d95a45', len: 13, wid: 5.2 },
+    catfish:   { body: '#4b5157', belly: '#7c848a', fin: '#3d4247', len: 15, wid: 4.4 },
+    snakehead: { body: '#6d6442', belly: '#a69c72', fin: '#5a5236', len: 16, wid: 4.2 },
+    koi:       { body: '#f7f3ea', belly: '#ffffff', fin: 'rgba(255,255,255,.7)', len: 13.5, wid: 5 },
+  }[id];
+  // tail
+  ctx.save(); ctx.translate(-P.len + 1, 0); ctx.rotate(wag);
+  ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(-6, -7, -10, -6.5); ctx.lineTo(-7, 0); ctx.lineTo(-10, 6.5); ctx.quadraticCurveTo(-6, 7, 0, 0);
+  ctx.fillStyle = id === 'koi' ? 'rgba(255,170,90,.75)' : P.fin; ctx.fill(); ctx.restore();
+  // pectoral fins
+  [-1, 1].forEach(d => { ctx.save(); ctx.translate(3, d * P.wid * 0.8); ctx.rotate(d * (0.9 + wag * 0.4)); ctx.beginPath(); ctx.ellipse(-2, d * 1.5, 3.2, 1.4, 0, 0, 7); ctx.fillStyle = P.fin; ctx.fill(); ctx.restore(); });
+  // body
+  const gr = ctx.createLinearGradient(0, -P.wid, 0, P.wid); gr.addColorStop(0, dark(P.body, 0.15)); gr.addColorStop(0.5, P.body); gr.addColorStop(1, dark(P.body, 0.15));
+  ctx.beginPath(); ctx.moveTo(P.len, 0); ctx.bezierCurveTo(P.len * 0.8, -P.wid * 1.1, -P.len * 0.4, -P.wid, -P.len, 0); ctx.bezierCurveTo(-P.len * 0.4, P.wid, P.len * 0.8, P.wid * 1.1, P.len, 0);
+  ctx.fillStyle = gr; ctx.fill(); ctx.strokeStyle = 'rgba(20,20,20,.35)'; ctx.lineWidth = 0.6; ctx.stroke();
+  ctx.save(); ctx.clip();
+  if (id === 'tilapia' || id === 'redtil') { ctx.strokeStyle = 'rgba(40,50,30,.25)'; ctx.lineWidth = 1.4; for (let k = -8; k <= 6; k += 3.5) { ctx.beginPath(); ctx.moveTo(k, -6); ctx.lineTo(k + 1, 6); ctx.stroke(); } }
+  if (id === 'snakehead') { ctx.fillStyle = 'rgba(30,25,10,.45)'; for (let k = -12; k <= 8; k += 5) { ctx.beginPath(); ctx.ellipse(k, (k % 2 ? 1 : -1) * 1.5, 2.2, 1.6, 0, 0, 7); ctx.fill(); } }
+  if (id === 'koi') { const r = seeded(seed || 3); ctx.fillStyle = '#ef6a1f'; for (let k = 0; k < 3; k++) { ctx.beginPath(); ctx.ellipse(-8 + r() * 16, -2 + r() * 4, 2.5 + r() * 3, 2 + r() * 2.5, r() * 3, 0, 7); ctx.fill(); } if (r() > 0.5) { ctx.fillStyle = '#222'; ctx.beginPath(); ctx.ellipse(-2 + r() * 6, r() * 2 - 1, 1.6, 1.2, 0, 0, 7); ctx.fill(); } }
+  ctx.fillStyle = 'rgba(255,255,255,.28)'; ctx.beginPath(); ctx.ellipse(2, -P.wid * 0.35, P.len * 0.55, P.wid * 0.25, 0, 0, 7); ctx.fill();
+  ctx.restore();
+  // dorsal line
+  ctx.strokeStyle = 'rgba(0,0,0,.18)'; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(P.len * 0.6, 0); ctx.lineTo(-P.len * 0.8, 0); ctx.stroke();
+  if (id === 'catfish') { ctx.strokeStyle = '#2f3438'; ctx.lineWidth = 0.6; [-1, 1].forEach(d => { ctx.beginPath(); ctx.moveTo(P.len - 1, d); ctx.quadraticCurveTo(P.len + 4, d * 4, P.len + 6 + wag * 3, d * 6); ctx.moveTo(P.len - 2, d * 1.8); ctx.quadraticCurveTo(P.len + 2, d * 6, P.len + 2, d * 8); ctx.stroke(); }); }
+  ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(P.len * 0.7, -P.wid * 0.42, 0.9, 0, 7); ctx.arc(P.len * 0.7, P.wid * 0.42, 0.9, 0, 7); ctx.fill();
+  ctx.restore();
+}
+
+const butterflies = Array.from({ length: 5 }, (_, i) => ({ x: 200 + i * 120, y: 200 + i * 60, a: i, c: ['#f6c63c', '#ffffff', '#ef8fb0', '#9fd3f0', '#f39a1e'][i] }));
+const clouds = [{ x: 100, y: 200, s: 1 }, { x: 600, y: 420, s: 1.3 }, { x: 900, y: 120, s: 0.9 }];
+const rainDrops = Array.from({ length: 140 }, () => ({ x: Math.random(), y: Math.random(), s: 0.6 + Math.random() * 0.6 }));
+function paintGrass(w, h, seed, density) {
+  const g = ctx.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#8cc955'); g.addColorStop(1, '#6eae3e');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+  const r = seeded(seed);
+  for (let k = 0; k < 14; k++) { ctx.fillStyle = r() > 0.5 ? 'rgba(255,255,200,.06)' : 'rgba(20,60,10,.06)'; ctx.beginPath(); ctx.ellipse(r() * w, r() * h, 40 + r() * 120, 20 + r() * 60, r() * 3, 0, 7); ctx.fill(); }
+  const cols = ['#5c9a32', '#7fbd47', '#4f8a2c', '#94cf5e'];
+  for (let k = 0; k < w * h / density; k++) {
+    const x = r() * w, y = r() * h, s = 3 + r() * 5; ctx.strokeStyle = cols[k % 4]; ctx.lineWidth = 1.3;
+    ctx.beginPath(); ctx.moveTo(x - s * 0.6, y); ctx.lineTo(x - s * 0.2, y - s); ctx.moveTo(x, y); ctx.lineTo(x + 0.4, y - s * 1.3); ctx.moveTo(x + s * 0.6, y); ctx.lineTo(x + s * 0.3, y - s); ctx.stroke();
+  }
+  for (let k = 0; k < w * h / 9000; k++) { const x = r() * w, y = r() * h; flower(x, y, 2.2, ['#ffffff', '#f6c63c', '#ef8fb0', '#b9a3f0'][k % 4], '#f2a22a'); }
+}
+function pondPath(P, grow) {
+  ctx.beginPath();
+  for (let k = 0; k <= 48; k++) { const th = k / 48 * Math.PI * 2, w = 1 + 0.05 * Math.sin(th * 3 + P.cx) + 0.03 * Math.sin(th * 5); const x = P.cx + Math.cos(th) * (P.rx + grow) * w, y = P.cy + Math.sin(th) * (P.ry + grow) * w; k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+  ctx.closePath();
+}
+function itemIcon(id, size) {
+  const key = id + '|' + size + '|' + R; let c = iconCache.get(key);
+  if (c) return c;
+  const [cc, kk] = mk(size, size);
+  withCtx(kk, () => {
+    if (isFish(id)) { ctx.translate(size / 2, size / 2); ctx.rotate(-0.4); drawFish(id, size / (id === 'prawn' ? 46 : 32), 0.2, 7); }
+    else { const tall = ['corn', 'papaya', 'grape', 'tomato', 'cucumber'].includes(id); const k = size / (tall ? 78 : 50); ctx.translate(size / 2, size * (tall ? 0.95 : 0.82)); ctx.scale(k, k); DRAW[id](1); }
+  });
+  iconCache.set(key, cc); return cc;
+}
+function drawPonds(dt) {
+  PONDS.forEach((P, i) => {
+    const pd = S.ponds[i];
+    if (!pd.dug) {
+      const lock = S.level < POND[i].lvl;
+      ctx.fillStyle = '#7a4b22'; ctx.fillRect(P.cx - 3, P.cy, 6, 30);
+      ctx.fillStyle = '#f2c95a'; ctx.strokeStyle = OUT; ctx.lineWidth = 2; rr(P.cx - 70, P.cy - 34, 140, 50, 10); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = OUT; ctx.font = '17px Itim, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('ขุดสระ ฿' + POND[i].cost.toLocaleString(), P.cx, P.cy - 20);
+      ctx.font = '14px Itim, sans-serif'; ctx.fillStyle = lock ? '#c4442b' : '#4f8a2c';
+      ctx.fillText(lock ? 'ต้องการ Lv ' + POND[i].lvl : 'แตะเพื่อขุด', P.cx, P.cy + 1);
+      return;
+    }
+    ctx.save(); pondPath(P, 0); ctx.clip();
+    // shimmer
+    ctx.strokeStyle = 'rgba(255,255,255,.22)'; ctx.lineWidth = 1.5;
+    for (let k = 0; k < 7; k++) { const y = P.cy - P.ry + ((k * 37 + t * 8) % (P.ry * 2)), x = P.cx - P.rx * 0.6 + Math.sin(t * 0.8 + k) * 30 + (k % 3) * 60; ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + 12, y - 3, x + 26, y); ctx.stroke(); }
+    // pellets
+    for (const q of pondFx[i]) if (q.k === 'pel') { ctx.fillStyle = '#8a5a2a'; ctx.beginPath(); ctx.arc(P.cx + q.u * P.rx, P.cy + q.v * P.ry, 2.2, 0, 7); ctx.fill(); }
+    // fish
+    const fs = 1.05;
+    for (const f of pd.fish) {
+      if (f.u === undefined) continue;
+      const x = P.cx + f.u * P.rx, y = P.cy + f.v * P.ry, s = (0.5 + f.g * 0.75) * fs * (f.t === 'prawn' ? 0.85 : 1.05);
+      ctx.save(); ctx.translate(x + 4, y + 6); ctx.rotate(f.a); ctx.globalAlpha = 0.22; ctx.fillStyle = '#0a2a3a'; ctx.beginPath(); ctx.ellipse(0, 0, 14 * s, 5 * s, 0, 0, 7); ctx.fill(); ctx.restore();
+      ctx.globalAlpha = 0.95; ctx.save(); ctx.translate(x, y); ctx.rotate(f.a); drawFish(f.t, s, Math.sin(t * 8 + f.sd) * 0.35, f.sd); ctx.restore(); ctx.globalAlpha = 1;
+      if (f.g >= 1) sparkle(x, y - 12 * s, 3.5 + Math.sin(t * 6 + f.sd) * 1.4, '#fff6a0');
+    }
+    // ripples / net
+    for (const q of pondFx[i]) {
+      const x = P.cx + q.u * P.rx, y = P.cy + q.v * P.ry;
+      if (q.k === 'ring') { const k = 1 - q.life / 1.2; ctx.strokeStyle = 'rgba(255,255,255,' + (1 - k) + ')'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(x, y, 6 + k * 30, 3 + k * 14, 0, 0, 7); ctx.stroke(); }
+      if (q.k === 'net') { const k = 1 - q.life / 0.7; ctx.strokeStyle = 'rgba(255,246,223,' + (1 - k * 0.6) + ')'; ctx.lineWidth = 1; ctx.beginPath(); ctx.ellipse(x, y, 30, 18, 0, 0, 7); ctx.stroke(); ctx.save(); ctx.beginPath(); ctx.ellipse(x, y, 30, 18, 0, 0, 7); ctx.clip(); for (let g = -30; g <= 30; g += 6) { ctx.beginPath(); ctx.moveTo(x + g, y - 18); ctx.lineTo(x + g + 8, y + 18); ctx.moveTo(x + g, y + 18); ctx.lineTo(x + g + 8, y - 18); ctx.stroke(); } ctx.restore(); }
+    }
+    for (let k = 0; k < 4; k++) { const ph = (t * 0.35 + k * 0.27 + i * 0.13) % 1, x = P.cx + Math.cos(k * 2.3 + i) * P.rx * 0.45, y = P.cy + Math.sin(k * 1.7 + i) * P.ry * 0.4; ctx.strokeStyle = 'rgba(255,255,255,' + (1 - ph) * 0.35 + ')'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.ellipse(x, y, 4 + ph * 22, 2 + ph * 9, 0, 0, 7); ctx.stroke(); }
+    ctx.restore();
+    // lily pads + lotus
+    const lr = seeded(51 + i);
+    for (let k = 0; k < 5; k++) {
+      const th = lr() * 6.28, x = P.cx + Math.cos(th) * P.rx * (0.62 + lr() * 0.2), y = P.cy + Math.sin(th) * P.ry * (0.6 + lr() * 0.2), r = 9 + lr() * 7;
+      ctx.fillStyle = k % 2 ? '#4f9a3a' : '#5fae45'; ctx.strokeStyle = 'rgba(25,50,15,.6)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.ellipse(x, y, r, r * 0.6, 0, th + 0.3, th + 0.3 + Math.PI * 1.85); ctx.closePath(); ctx.fill(); ctx.stroke();
+      if (k === 1 || k === 3) { const b = 1 + Math.sin(t * 1.5 + k) * 0.05; ctx.save(); ctx.translate(x, y - 4); ctx.scale(b, b); for (let q = 0; q < 6; q++) { ctx.fillStyle = q % 2 ? '#f7a8c4' : '#ef7fa8'; ctx.beginPath(); ctx.ellipse(Math.cos(q) * 3, Math.sin(q) * 1.5 - 2, 3, 6, Math.cos(q) * 0.6, 0, 7); ctx.fill(); } ctx.fillStyle = '#f6d04a'; ctx.beginPath(); ctx.arc(0, -2, 2, 0, 7); ctx.fill(); ctx.restore(); }
+    }
+    // status panel
+    const px = P.cx - 74, py = P.cy - P.ry - 34;
+    ctx.fillStyle = 'rgba(255,246,223,.95)'; ctx.strokeStyle = OUT; ctx.lineWidth = 2; rr(px, py, 148, 26, 8); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = OUT; ctx.font = '14px Itim, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText('บ่อ ' + (i + 1) + ' · ' + pd.fish.length + '/' + POND_CAP, px + 8, py + 13);
+    ctx.fillStyle = '#e8dcc0'; rr(px + 80, py + 8, 60, 10, 5); ctx.fill();
+    if (pd.food > 0) { ctx.fillStyle = '#c98a3a'; rr(px + 80, py + 8, Math.max(4, 60 * pd.food / 100), 10, 5); ctx.fill(); }
+    if (pd.fish.length && pd.food <= 0 && Math.floor(t * 3) % 2 === 0) { ctx.fillStyle = '#c4442b'; ctx.font = '13px Itim, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('หิวแล้ว!', P.cx, py + 40); }
+    if (S.up.feeder) { ctx.fillStyle = '#9aa6ad'; ctx.strokeStyle = OUT; ctx.lineWidth = 1.5; rr(P.cx - P.rx - 4, P.cy - 12, 16, 22, 3); ctx.fill(); ctx.stroke(); }
+  });
+}
+function drawFx(dt) {
+  for (let k = fx.length - 1; k >= 0; k--) {
+    const f = fx[k]; f.life -= dt;
+    if (f.life <= 0) { fx.splice(k, 1); continue; }
+    if (f.k === 'txt') {
+      f.y -= dt * 34; ctx.globalAlpha = Math.min(1, f.life * 1.5);
+      ctx.font = '20px Itim, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.lineWidth = 4; ctx.strokeStyle = '#fff6df'; ctx.strokeText(f.text, f.x, f.y); ctx.fillStyle = f.color; ctx.fillText(f.text, f.x, f.y);
+    } else if (f.k === 'fly') {
+      f.t += dt; const q = Math.min(1, f.t / 0.9), e = q * q * (3 - 2 * q), bx = BARN.x + BARN.w / 2, by = BARN.y + 60;
+      const x = f.x0 + (bx - f.x0) * e, y = f.y0 + (by - f.y0) * e - Math.sin(q * Math.PI) * 80, s = 34 * (1 - q * 0.4);
+      ctx.globalAlpha = 1; ctx.drawImage(itemIcon(f.id, 40), x - s / 2, y - s / 2, s, s);
+    } else {
+      f.vy += 300 * dt; f.x += f.vx * dt; f.y += f.vy * dt; ctx.globalAlpha = Math.min(1, f.life * 2);
+      ctx.fillStyle = f.color; ctx.beginPath(); ctx.arc(f.x, f.y, 3, 0, 7); ctx.fill();
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+function drawButterflies(dt) {
+  for (const b of butterflies) {
+    b.a += (Math.sin(t * 0.7 + b.x * 0.01) * 1.5) * dt;
+    b.x += Math.cos(b.a) * 34 * dt; b.y += Math.sin(b.a) * 22 * dt;
+    if (b.x < 20 || b.x > WW - 20 || b.y < 60 || b.y > WH - 20) b.a += Math.PI * dt * 3;
+    b.x = Math.max(10, Math.min(WW - 10, b.x)); b.y = Math.max(50, Math.min(WH - 10, b.y));
+    const f = Math.abs(Math.sin(t * 16 + b.x)) * 0.8 + 0.2;
+    ctx.save(); ctx.translate(b.x, b.y); ctx.fillStyle = b.c; ctx.strokeStyle = OUT; ctx.lineWidth = 0.8;
+    [-1, 1].forEach(d => { ctx.beginPath(); ctx.ellipse(d * 4 * f, -2, 4 * f, 3.4, d * 0.4, 0, 7); ctx.fill(); ctx.stroke(); ctx.beginPath(); ctx.ellipse(d * 3 * f, 2.5, 3 * f, 2.4, -d * 0.4, 0, 7); ctx.fill(); ctx.stroke(); });
+    ctx.fillStyle = OUT; ctx.fillRect(-0.8, -4, 1.6, 8); ctx.restore();
+  }
+}
+function drawClouds(dt) {
+  ctx.fillStyle = 'rgba(20,40,60,.07)';
+  for (const c of clouds) { c.x += 12 * dt; if (c.x > WW + 200) { c.x = -200; c.y = 80 + Math.random() * (WH - 160); } ctx.beginPath(); ctx.ellipse(c.x, c.y, 120 * c.s, 50 * c.s, 0, 0, 7); ctx.ellipse(c.x + 70 * c.s, c.y + 15, 80 * c.s, 40 * c.s, 0, 0, 7); ctx.fill(); }
+}
+function drawRain(dt) {
+  if (S.rain <= 0) return;
+  const k = Math.min(1, S.rain / 3);
+  ctx.fillStyle = 'rgba(40,60,90,' + 0.16 * k + ')'; ctx.fillRect(0, 0, cssW, cssH);
+  ctx.strokeStyle = 'rgba(220,235,255,' + 0.6 * k + ')'; ctx.lineWidth = 1.2; ctx.beginPath();
+  for (const d of rainDrops) { d.y += dt * 1.6 * d.s; d.x += dt * 0.15; if (d.y > 1) { d.y -= 1; d.x = Math.random(); } if (d.x > 1) d.x -= 1; const x = d.x * cssW, y = d.y * cssH; ctx.moveTo(x, y); ctx.lineTo(x + 4, y + 14 * d.s); }
+  ctx.stroke();
+}
+function drawSprinklers() {
+  if (!S.up.sprinkler) return;
+  const f = FIELD, heads = [[f.x - 10, f.y - 6], [f.x + f.w + 10, f.y - 6], [f.x - 10, f.y + f.h + 4], [f.x + f.w + 10, f.y + f.h + 4]];
+  heads.forEach(([x, y]) => { ctx.fillStyle = '#9aa6ad'; ctx.strokeStyle = OUT; ctx.lineWidth = 1.5; rr(x - 4, y - 10, 8, 12, 2); ctx.fill(); ctx.stroke(); });
+  if (sprayT > 0) {
+    ctx.strokeStyle = 'rgba(160,210,255,' + Math.min(1, sprayT) * 0.8 + ')'; ctx.lineWidth = 1.4;
+    heads.forEach(([x, y]) => { for (let k = 0; k < 7; k++) { const a = Math.atan2(f.y + f.h / 2 - y, f.x + f.w / 2 - x) + (k - 3) * 0.12, len = 60 + ((t * 200 + k * 30) % 80); ctx.beginPath(); ctx.moveTo(x, y - 8); ctx.quadraticCurveTo(x + Math.cos(a) * len * 0.5, y - 30, x + Math.cos(a) * len, y + Math.sin(a) * len - 8); ctx.stroke(); } });
+  }
+}
+function newDay() {
+  S.clock -= DAY; S.day++;
+  S.prevMarket = S.market; S.market = rollMarket();
+  S.order = newOrder(S);
+  S.qDone = 0; S.qBonus = false; renderQuests();
+  if (Math.random() < 0.3) { S.rain = 16 + Math.random() * 10; toast('เช้าวันที่ ' + S.day + ' · ฝนตก รดน้ำแปลงผักให้ฟรี'); }
+  else toast('เช้าวันที่ ' + S.day + ' · ราคาตลาดและออเดอร์ใหม่มาแล้ว');
+  if (!$('veil').hidden && modalKind === 'market') renderMarket();
+}
+function swim(i, pd, dt) {
+  const pel = pondFx[i];
+  for (const f of pd.fish) {
+    if (f.u === undefined) { f.u = (Math.random() - 0.5) * 0.8; f.v = (Math.random() - 0.5) * 0.8; f.a = Math.random() * 6.28; f.sd = Math.floor(Math.random() * 999) + 1; }
+    let target = null, best = 1e9;
+    for (const q of pel) if (q.k === 'pel') { const d = (q.u - f.u) ** 2 + (q.v - f.v) ** 2; if (d < best) { best = d; target = q; } }
+    let want = f.a + (Math.sin(t * 0.9 + f.sd) * 0.9) * dt;
+    if (target) { want = Math.atan2(target.v - f.v, target.u - f.u); if (best < 0.004) target.life = 0; }
+    const r2 = f.u * f.u + f.v * f.v;
+    if (r2 > 0.55) want = Math.atan2(-f.v, -f.u);
+    let d = want - f.a; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
+    f.a += d * Math.min(1, dt * (target ? 4 : 1.6));
+    const sp = (target ? 0.32 : 0.12) * (0.7 + 0.3 * Math.sin(t * 2 + f.sd));
+    f.u += Math.cos(f.a) * sp * dt; f.v += Math.sin(f.a) * sp * dt * 1.4;
+  }
+  for (let k = pel.length - 1; k >= 0; k--) { pel[k].life -= dt; if (pel[k].life <= 0) pel.splice(k, 1); }
+}
+function gainXp(n, x, y) {
+  S.xp += n; float(x, y - 30, '+' + n + ' XP', '#4f8a2c');
+  while (S.xp >= xpNeed(S.level)) {
+    S.level++;
+    const un = [...CROPS, ...FISH].filter(c => c.lvl === S.level).map(c => c.name);
+    POND.forEach((p, k) => { if (p.lvl === S.level) un.push('บ่อปลา ' + (k + 1)); });
+    UPGRADES.forEach(u => { if (u.lvl === S.level) un.push(u.name); });
+    toast('เลเวล ' + S.level + '!' + (un.length ? ' ปลดล็อก ' + un.join(', ') : ''));
+    renderTray(); onLevelUp();
+  }
+}
+/* ================= world (3/4 top-down, world units) ================= */
+const WW = 1800, WH = 1260, BED_H = 12, ACT_T = 0.32, SPEED = 360;
+const FIELD = { x: 150, y: 500, pw: 104, ph: 92, gap: 16, cols: 8, rows: 5 };
+FIELD.w = FIELD.cols * FIELD.pw + (FIELD.cols - 1) * FIELD.gap;
+FIELD.h = FIELD.rows * FIELD.ph + (FIELD.rows - 1) * FIELD.gap + BED_H;
+const FENCE = { x: FIELD.x - 28, y: FIELD.y - 46, w: FIELD.w + 56, h: FIELD.h + 66 };
+const GATES = [
+  { inX: 640, inY: FIELD.y - 18, outX: 640, outY: 425 },
+  { inX: FENCE.x + FENCE.w - 16, inY: 770, outX: 1215, outY: 770 },
+];
+const HOUSE = { x: 150, y: 104, w: 280, h: 256 };
+const BARN = { x: 500, y: 112, w: 230, h: 248 };
+const PASTURE = { x: 790, y: 150, w: 330, h: 222 };
+const PONDS = [{ cx: 1470, cy: 300, rx: 205, ry: 116 }, { cx: 1470, cy: 640, rx: 205, ry: 116 }, { cx: 1470, cy: 980, rx: 205, ry: 108 }];
+const pondSpot = i => ({ x: PONDS[i].cx - PONDS[i].rx - 30, y: PONDS[i].cy + 14 });
+const MAX_PLOTS = FIELD.cols * FIELD.rows;
+
+function plotRect(i) {
+  const c = i % FIELD.cols, r = Math.floor(i / FIELD.cols);
+  return { x: FIELD.x + c * (FIELD.pw + FIELD.gap), y: FIELD.y + r * (FIELD.ph + FIELD.gap), w: FIELD.pw, h: FIELD.ph };
+}
+function plotAt(x, y) {
+  for (let i = 0; i < MAX_PLOTS; i++) { const p = plotRect(i); if (x >= p.x && x <= p.x + p.w && y >= p.y && y <= p.y + p.h + BED_H) return i; }
+  return -1;
+}
+function pondAt(x, y) {
+  for (let i = 0; i < PONDS.length; i++) { const P = PONDS[i], u = (x - P.cx) / P.rx, v = (y - P.cy) / P.ry; if (u * u + v * v <= 1.05) return i; }
+  return -1;
+}
+const inRect = (x, y, r) => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
+const inBarn = (x, y) => inRect(x, y, BARN);
+const inField = (x, y) => x > FENCE.x && x < FENCE.x + FENCE.w && y > FENCE.y + 20 && y < FENCE.y + FENCE.h;
+const dist = (a, b, c, d) => Math.hypot(c - a, d - b);
+function segHitsRect(x0, y0, x1, y1, r) {
+  for (let k = 0; k <= 20; k++) { const q = k / 20; if (inRect(x0 + (x1 - x0) * q, y0 + (y1 - y0) * q, r)) return true; }
+  return false;
+}
+function route(fx0, fy0, tx, ty) {
+  const a = inField(fx0, fy0), b = inField(tx, ty);
+  if (a === b) {
+    if (!a && segHitsRect(fx0, fy0, tx, ty, FENCE)) return [[1215, 425], [tx, ty]];
+    return [[tx, ty]];
+  }
+  let best = GATES[0], bd = 1e9;
+  for (const g of GATES) { const d = a ? dist(fx0, fy0, g.inX, g.inY) + dist(g.outX, g.outY, tx, ty) : dist(fx0, fy0, g.outX, g.outY) + dist(g.inX, g.inY, tx, ty); if (d < bd) { bd = d; best = g; } }
+  const pts = a ? [[best.inX, best.inY], [best.outX, best.outY]] : [[best.outX, best.outY], [best.inX, best.inY]];
+  const [lx, ly] = pts[pts.length - 1];
+  if (!b && segHitsRect(lx, ly, tx, ty, FENCE)) pts.push([1215, 425]);
+  pts.push([tx, ty]);
+  return pts;
+}
+
+/* ================= state ================= */
+let S;
+const fx = [];
+const pondFx = [[], [], []];
+const queue = [];
+const F = { x: 640, y: 440, dir: 'down', walk: 0, moving: false, path: [], task: null, act: 0 };
+let hover = -1, t = 0, sprayT = 0;
+const $ = id => document.getElementById(id);
+let toastTimer = 0, lastToast = '', lastToastAt = 0;
+function toast(msg) {
+  const now = performance.now();
+  if (msg === lastToast && now - lastToastAt < 1500) return;
+  lastToast = msg; lastToastAt = now;
+  const el = $('toast'); el.textContent = msg; el.classList.remove('off');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.add('off'), 2400);
+}
+function float(x, y, text, color) { fx.push({ k: 'txt', x, y, text, color, life: 1.3 }); }
+function burst(x, y, color, n) { for (let i = 0; i < n; i++) fx.push({ k: 'dot', x, y, vx: (Math.random() - 0.5) * 120, vy: -Math.random() * 120 - 30, color, life: 0.7 + Math.random() * 0.3 }); }
+function flyToBarn(x, y, id) { fx.push({ k: 'fly', x0: x, y0: y, id, t: 0, life: 0.9 }); }
+const curTool = () => S.mode === 'field' ? S.toolF : S.toolP;
+function resetFarmer() { Object.assign(F, { x: 640, y: 440, dir: 'down', path: [], task: null, act: 0, moving: false }); queue.length = 0; }
+
+/* ================= tasks: the farmer walks to each job ================= */
+const allTasks = () => (F.task ? [F.task, ...queue] : queue);
+function projected(i) {
+  const p = S.plots[i];
+  let s = p.s, ripe = p.s === 'crop' && p.p >= 1, fert = !!p.f;
+  for (const k of allTasks()) {
+    if (k.k !== 'plot' || k.i !== i) continue;
+    if (k.tool === 'hoe' && s === 'grass') s = 'soil';
+    else if (k.tool === 'seed' && s === 'soil') { s = 'crop'; ripe = false; fert = false; }
+    else if (k.tool === 'shovel' && s === 'dead') s = 'soil';
+    else if (k.tool === 'hand' && s === 'crop' && ripe) s = 'soil';
+    else if (k.tool === 'fert') fert = true;
+  }
+  return { s, ripe, fert };
+}
+const queuedCount = pred => allTasks().filter(pred).length;
+function fieldCheck(i, tool) {
+  const pr = projected(i);
+  if (allTasks().some(k => k.k === 'plot' && k.i === i && k.tool === tool)) return 'skip';
+  switch (tool) {
+    case 'hoe': return pr.s === 'grass' ? null : pr.s === 'dead' ? 'ใช้ "ถอนต้นตาย" ก่อน แล้วค่อยไถใหม่' : 'skip';
+    case 'seed': {
+      if (pr.s === 'grass') return 'ต้องไถดินก่อนหว่านเมล็ด';
+      if (pr.s !== 'soil') return 'skip';
+      const c = CROP[S.seed];
+      if (!c || c.lvl > S.level) return 'เลือกเมล็ดที่ปลดล็อกแล้วจากแถวด้านล่าง';
+      const left = (S.seeds[c.id] || 0) - queuedCount(k => k.tool === 'seed' && k.seed === c.id);
+      return left > 0 ? null : 'เมล็ด' + c.name + 'หมดแล้ว · ซื้อเพิ่มที่ตลาด';
+    }
+    case 'water': return pr.s === 'grass' ? 'รดน้ำได้เฉพาะแปลงที่ไถแล้ว' : (pr.s === 'soil' || (pr.s === 'crop' && !pr.ripe)) ? null : 'skip';
+    case 'fert': {
+      if (pr.s !== 'crop' || pr.ripe) return 'ใส่ปุ๋ยได้เฉพาะแปลงที่มีผักกำลังโต';
+      if (pr.fert) return 'skip';
+      return S.money - 5 * queuedCount(k => k.tool === 'fert') >= 5 ? null : 'เงินไม่พอซื้อปุ๋ย (฿5)';
+    }
+    case 'hand': return pr.s === 'crop' && pr.ripe ? null : pr.s === 'crop' ? 'ยังไม่สุก · รอให้มีประกายวิบวับก่อน' : 'skip';
+    case 'shovel': return pr.s === 'dead' ? null : pr.s === 'crop' ? 'ต้นนี้ยังดีอยู่ · ถอนได้เฉพาะต้นที่ตายแล้ว' : 'skip';
+  }
+  return 'skip';
+}
+function pondCheck(i, tool) {
+  const pd = S.ponds[i], qStock = queuedCount(k => k.k === 'pond' && k.i === i && k.tool === 'stock');
+  switch (tool) {
+    case 'stock': {
+      const f = FISHM[S.fsel];
+      if (!f || f.lvl > S.level) return 'เลือกลูกปลาที่ปลดล็อกแล้วจากแถวด้านล่าง';
+      if (pd.fish.length + qStock >= POND_CAP) return 'บ่อนี้เต็มแล้ว (' + POND_CAP + ' ตัว) · ช้อนปลาที่โตแล้วออกก่อน';
+      const left = (S.fry[f.id] || 0) - queuedCount(k => k.tool === 'stock' && k.fish === f.id);
+      return left > 0 ? null : 'ลูกปลา' + f.name + 'หมด · ซื้อเพิ่มที่ตลาด';
+    }
+    case 'feed':
+      if (!pd.fish.length && !qStock) return 'ยังไม่มีปลาในบ่อ · ปล่อยลูกปลาก่อน';
+      if (queuedCount(k => k.k === 'pond' && k.i === i && k.tool === 'feed')) return 'skip';
+      return S.money >= 3 ? null : 'เงินไม่พอซื้ออาหารปลา (฿3)';
+    case 'net':
+      if (queuedCount(k => k.k === 'pond' && k.i === i && k.tool === 'net')) return 'skip';
+      return pd.fish.some(f => f.g >= 1) ? null : pd.fish.length ? 'ปลายังโตไม่เต็มที่ · รอให้มีประกายก่อน' : 'บ่อนี้ยังไม่มีปลา';
+  }
+  return 'skip';
+}
+function tapPlot(i) {
+  if (i >= S.unlocked) { askLand(); return; }
+  const p = S.plots[i];
+  let tool = S.toolF;
+  if (p.s === 'crop' && p.p >= 1 && tool !== 'shovel') tool = 'hand';
+  const msg = fieldCheck(i, tool);
+  if (msg === 'skip') return;
+  if (msg) { toast(msg); return; }
+  queue.push({ k: 'plot', i, tool, seed: S.seed });
+}
+function tapPond(i, x, y) {
+  if (!S.ponds[i].dug) { askPond(i); return; }
+  const msg = pondCheck(i, S.toolP);
+  if (msg === 'skip') return;
+  if (msg) { toast(msg); return; }
+  const P = PONDS[i];
+  queue.push({ k: 'pond', i, tool: S.toolP, fish: S.fsel, u: (x - P.cx) / P.rx, v: (y - P.cy) / P.ry });
+}
+function taskSpot(k) {
+  if (k.k === 'plot') { const r = plotRect(k.i); return { x: r.x + r.w / 2, y: r.y + r.h + BED_H + 3, dir: 'up' }; }
+  if (k.k === 'pond') { const s = pondSpot(k.i); return { x: s.x, y: s.y, dir: 'right' }; }
+  return { x: k.x, y: k.y };
+}
+function updateFarmer(dt) {
+  if (!F.task && queue.length) {
+    F.task = queue.shift(); F.act = 0;
+    const s = taskSpot(F.task);
+    F.path = Math.hypot(s.x - F.x, s.y - F.y) < 4 ? [] : route(F.x, F.y, s.x, s.y);
+  }
+  F.moving = false;
+  if (F.path.length) {
+    const [tx, ty] = F.path[0], dx = tx - F.x, dy = ty - F.y, d = Math.hypot(dx, dy), step = SPEED * dt;
+    if (d <= step) { F.x = tx; F.y = ty; F.path.shift(); }
+    else { F.x += dx / d * step; F.y += dy / d * step; }
+    if (d > 0.5) F.dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
+    F.moving = true; F.walk += dt * 13;
+    return;
+  }
+  if (!F.task) return;
+  if (F.task.k === 'move') { F.task = null; return; }
+  const s = taskSpot(F.task); if (s.dir) F.dir = s.dir;
+  F.act += dt;
+  if (F.act >= ACT_T) { const k = F.task; F.task = null; F.act = 0; k.k === 'plot' ? fieldExec(k) : pondExec(k); }
+}
+function fieldExec(k) {
+  const i = k.i, r = plotRect(i), cx = r.x + r.w / 2, cy = r.y + r.h / 2, p = S.plots[i];
+  if (p.s === 'crop' && p.p >= 1 && k.tool !== 'shovel') { harvest(p, cx, cy); hud(); return; }
+  switch (k.tool) {
+    case 'hoe': if (p.s === 'grass') { p.s = 'soil'; burst(cx, cy, '#8a5a35', 10); questEvent('till'); } break;
+    case 'seed': {
+      if (p.s !== 'soil') break;
+      const c = CROP[k.seed];
+      if (!(S.seeds[c.id] > 0)) { toast('เมล็ด' + c.name + 'หมดแล้ว · ซื้อเพิ่มที่ตลาด'); break; }
+      S.seeds[c.id]--; questEvent('plant', c.id);
+      Object.assign(p, { s: 'crop', c: c.id, p: 0, dry: 0, ripe: 0, f: false });
+      burst(cx, cy, '#e7c98f', 8); renderTray();
+      break;
+    }
+    case 'water': if (p.s === 'soil' || (p.s === 'crop' && p.p < 1)) { p.w = 100; p.dry = 0; burst(cx, cy - 10, '#3d8fdc', 12); questEvent('water'); } break;
+    case 'fert':
+      if (p.s === 'crop' && p.p < 1 && !p.f) {
+        if (S.money < 5) { toast('เงินไม่พอซื้อปุ๋ย (฿5)'); break; }
+        S.money -= 5; p.f = true; questEvent('fert'); float(cx, cy - 20, '-฿5', '#c4442b'); burst(cx, cy, '#f6c63c', 8);
+      }
+      break;
+    case 'shovel': if (p.s === 'dead') { Object.assign(p, { s: 'soil', c: null, p: 0, w: 0, f: false }); burst(cx, cy, '#6b4a2b', 10); } break;
+  }
+  hud();
+}
+function harvest(p, cx, cy) {
+  const c = CROP[p.c];
+  S.barn[c.id] = (S.barn[c.id] || 0) + 1; S.harvested++; questEvent('harvest', c.id);
+  gainXp(Math.round(c.price / 2), cx, cy);
+  float(cx, cy - 6, '+1 ' + c.name, '#2d2416'); burst(cx, cy, '#f6c63c', 12); flyToBarn(cx, cy, c.id);
+  Object.assign(p, { s: 'soil', c: null, p: 0, w: 0, f: false });
+}
+function pondExec(k) {
+  const i = k.i, pd = S.ponds[i], P = PONDS[i], x = P.cx + k.u * P.rx, y = P.cy + k.v * P.ry;
+  switch (k.tool) {
+    case 'stock': {
+      const f = FISHM[k.fish];
+      if (pd.fish.length >= POND_CAP || !(S.fry[f.id] > 0)) { toast('ปล่อยปลาไม่ได้ · บ่อเต็มหรือลูกปลาหมด'); break; }
+      S.fry[f.id]--; questEvent('stock', f.id);
+      pd.fish.push({ t: f.id, g: 0, u: k.u * 0.6, v: k.v * 0.6, a: Math.random() * 6.28, sd: Math.floor(Math.random() * 999) + 1 });
+      pondFx[i].push({ k: 'ring', u: k.u, v: k.v, life: 1.2 }); renderTray();
+      if (pd.food <= 0) toast('ปล่อย' + f.name + 'แล้ว · อย่าลืมให้อาหาร ปลาถึงจะโต');
+      break;
+    }
+    case 'feed':
+      if (S.money < 3) { toast('เงินไม่พอซื้ออาหารปลา (฿3)'); break; }
+      S.money -= 3; pd.food = 100; questEvent('feed'); float(x, y - 20, '-฿3', '#c4442b');
+      for (let n = 0; n < 12; n++) pondFx[i].push({ k: 'pel', u: k.u + (Math.random() - 0.5) * 0.3, v: k.v + (Math.random() - 0.5) * 0.3, life: 6 });
+      break;
+    case 'net': {
+      pondFx[i].push({ k: 'net', u: k.u, v: k.v, life: 0.7 });
+      const ripe = pd.fish.filter(f => f.g >= 1);
+      if (!ripe.length) break;
+      let xp = 0;
+      ripe.forEach(f => { S.barn[f.t] = (S.barn[f.t] || 0) + 1; xp += Math.round(FISHM[f.t].price / 2); flyToBarn(P.cx + f.u * P.rx, P.cy + f.v * P.ry, f.t); });
+      pd.fish = pd.fish.filter(f => f.g < 1); S.harvested += ripe.length; ripe.forEach(f => questEvent('catch', f.t));
+      float(x, y - 6, 'ได้ปลา ' + ripe.length + ' ตัว', '#2d2416'); burst(x, y, '#9fd3f0', 14);
+      gainXp(xp, x, y);
+      break;
+    }
+  }
+  hud();
+}
+
+/* ================= simulation ================= */
+function update(dt) {
+  S.clock += dt; S.playSec = (S.playSec || 0) + dt;
+  if (S.clock >= DAY) newDay();
+  if (S.rain > 0) S.rain = Math.max(0, S.rain - dt);
+  let needSpray = false;
+  for (let i = 0; i < S.unlocked; i++) {
+    const p = S.plots[i];
+    if (S.rain > 0 && (p.s === 'soil' || p.s === 'crop')) { p.w = 100; p.dry = 0; }
+    if (p.w > 0) p.w = Math.max(0, p.w - dt * 2.4);
+    if (S.up.sprinkler && p.s === 'crop' && p.p < 1 && p.w < 12) needSpray = true;
+    if (p.s !== 'crop') continue;
+    const c = CROP[p.c];
+    if (p.p < 1) {
+      if (p.w > 0) { p.p = Math.min(1, p.p + dt / c.time * (p.f ? 1.6 : 1)); p.dry = 0; }
+      else { p.dry = (p.dry || 0) + dt; if (p.dry > 25) p.s = 'dead'; }
+    } else { p.ripe = (p.ripe || 0) + dt; if (p.ripe > 120) p.s = 'dead'; }
+  }
+  if (needSpray) { for (let i = 0; i < S.unlocked; i++) { const p = S.plots[i]; if (p.s === 'soil' || p.s === 'crop') { p.w = 100; p.dry = 0; } } sprayT = 1.8; }
+  if (sprayT > 0) sprayT -= dt;
+  S.ponds.forEach((pd, i) => {
+    if (!pd.dug) return;
+    if (pd.food > 0) pd.food = Math.max(0, pd.food - dt * 2);
+    if (S.up.feeder && pd.fish.length && pd.food < 15) pd.food = 100;
+    for (const f of pd.fish) if (f.g < 1 && pd.food > 0) f.g = Math.min(1, f.g + dt / FISHM[f.t].time);
+    swim(i, pd, dt);
+  });
+  updateFarmer(dt);
+  updateAnimals(dt);
+}
+
+/* ================= animals in the pasture ================= */
+const animals = [
+  { k: 'cow', x: 880, y: 260, tx: 880, ty: 260, dir: 1, walk: 0, idle: 2, spots: 3 },
+  { k: 'cow', x: 1010, y: 320, tx: 1010, ty: 320, dir: -1, walk: 0, idle: 4, spots: 7 },
+  ...[0, 1, 2, 3].map(n => ({ k: 'hen', x: 850 + n * 60, y: 330 + (n % 2) * 20, tx: 0, ty: 0, dir: 1, walk: 0, idle: n, spots: 0 })),
+];
+function updateAnimals(dt) {
+  for (const a of animals) {
+    const sp = a.k === 'cow' ? 22 : 38;
+    if (a.idle > 0) { a.idle -= dt; a.moving = false; if (a.idle <= 0) { a.tx = PASTURE.x + 40 + Math.random() * (PASTURE.w - 80); a.ty = PASTURE.y + 70 + Math.random() * (PASTURE.h - 100); } continue; }
+    const dx = a.tx - a.x, dy = a.ty - a.y, d = Math.hypot(dx, dy);
+    if (d < 2) { a.idle = 1.5 + Math.random() * (a.k === 'cow' ? 5 : 2.5); continue; }
+    a.x += dx / d * sp * dt; a.y += dy / d * sp * dt; a.dir = dx >= 0 ? 1 : -1; a.walk += dt * 9; a.moving = true;
+  }
+}
+function drawCow(a) {
+  ctx.save(); ctx.translate(a.x, a.y);
+  ctx.fillStyle = 'rgba(20,30,10,.25)'; ctx.beginPath(); ctx.ellipse(0, 0, 28, 7, 0, 0, 7); ctx.fill();
+  if (a.dir < 0) ctx.scale(-1, 1);
+  const bob = a.moving ? Math.abs(Math.sin(a.walk)) * 1.5 : 0, sw = a.moving ? Math.sin(a.walk) * 3 : 0;
+  ctx.lineWidth = 1.4; ctx.strokeStyle = OUT;
+  [[-16, sw], [-8, -sw], [8, sw], [16, -sw]].forEach(([x, s]) => { ctx.fillStyle = '#f4f0e8'; rr(x - 3 + s * 0.5, -14, 6, 13, 2); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#5a4636'; ctx.fillRect(x - 3 + s * 0.5, -3, 6, 3); });
+  ctx.translate(0, -bob);
+  ctx.beginPath(); ctx.moveTo(-24, -24); ctx.quadraticCurveTo(-32, -18, -29, -8); ctx.strokeStyle = '#5a4636'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.lineWidth = 1.4; ctx.strokeStyle = OUT;
+  ctx.beginPath(); ctx.ellipse(0, -24, 25, 13, 0, 0, 7); ctx.fillStyle = '#faf7f0'; ctx.fill(); ctx.stroke();
+  ctx.save(); ctx.clip(); const r = seeded(a.spots); ctx.fillStyle = '#2f2a28';
+  for (let k = 0; k < 4; k++) { ctx.beginPath(); ctx.ellipse(-18 + r() * 34, -32 + r() * 14, 5 + r() * 6, 4 + r() * 4, r() * 3, 0, 7); ctx.fill(); }
+  ctx.restore();
+  ctx.fillStyle = '#f2a3b0'; ctx.beginPath(); ctx.ellipse(6, -12, 5, 3, 0, 0, 7); ctx.fill();
+  const hy = a.moving ? -30 : -24 + Math.sin(t * 1.3 + a.spots) * 2;
+  ctx.fillStyle = '#e8dcc0'; ctx.beginPath(); ctx.ellipse(27, hy - 8, 2, 4, 0.5, 0, 7); ctx.ellipse(33, hy - 8, 2, 4, -0.5, 0, 7); ctx.fill();
+  ctx.fillStyle = '#faf7f0'; ctx.beginPath(); ctx.ellipse(30, hy, 10, 9, 0, 0, 7); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(21, hy - 4, 5, 2.4, -0.5, 0, 7); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#f2a3b0'; ctx.beginPath(); ctx.ellipse(35, hy + 4, 6.5, 5, 0, 0, 7); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = OUT; ctx.beginPath(); ctx.arc(33, hy + 4, 0.9, 0, 7); ctx.arc(38, hy + 4, 0.9, 0, 7); ctx.arc(30, hy - 3, 1.5, 0, 7); ctx.fill();
+  ctx.restore();
+}
+function drawHen(a) {
+  ctx.save(); ctx.translate(a.x, a.y);
+  ctx.fillStyle = 'rgba(20,30,10,.25)'; ctx.beginPath(); ctx.ellipse(0, 0, 9, 3, 0, 0, 7); ctx.fill();
+  if (a.dir < 0) ctx.scale(-1, 1);
+  const peck = !a.moving && Math.sin(t * 5 + a.y) > 0.6 ? 6 : 0, hop = a.moving ? Math.abs(Math.sin(a.walk)) * 2 : 0;
+  ctx.strokeStyle = '#e09a2a'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(-2, -5); ctx.lineTo(-2, 0); ctx.moveTo(2, -5); ctx.lineTo(2, 0); ctx.stroke();
+  ctx.translate(0, -hop); ctx.lineWidth = 1.2; ctx.strokeStyle = OUT;
+  ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.moveTo(-9, -12); ctx.lineTo(-13, -18); ctx.lineTo(-7, -15); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(0, -10, 9, 7, 0, 0, 7); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.arc(7, -17 + peck, 4.5, 0, 7); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#e2392b'; ctx.beginPath(); ctx.arc(6, -22 + peck, 2, 0, 7); ctx.arc(8.5, -21.5 + peck, 1.8, 0, 7); ctx.fill();
+  ctx.fillStyle = '#f39a1e'; ctx.beginPath(); ctx.moveTo(11, -18 + peck); ctx.lineTo(15, -16.5 + peck); ctx.lineTo(11, -15 + peck); ctx.fill();
+  ctx.fillStyle = OUT; ctx.beginPath(); ctx.arc(8.5, -18 + peck, 0.9, 0, 7); ctx.fill();
+  ctx.restore();
+}
+
+/* ================= the farmer ================= */
+function drawHeldTool(tool, p) {
+  ctx.save(); ctx.translate(0, 12); ctx.lineWidth = 1.3; ctx.strokeStyle = OUT;
+  switch (tool) {
+    case 'hoe': case 'shovel':
+      ctx.fillStyle = '#8a5a2a'; rr(-1.5, -6, 3, 34, 1.5); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#b8c2c8';
+      if (tool === 'hoe') { rr(-1, 24, 12, 6, 1.5); ctx.fill(); ctx.stroke(); }
+      else { ctx.beginPath(); ctx.moveTo(-6, 26); ctx.lineTo(6, 26); ctx.lineTo(4, 36); ctx.quadraticCurveTo(0, 40, -4, 36); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+      break;
+    case 'water':
+      ctx.rotate(p >= 0 ? -0.9 * Math.sin(p * Math.PI) : 0);
+      ctx.fillStyle = '#4c9ae0'; rr(-7, 2, 14, 12, 3); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(7, 6); ctx.lineTo(15, 0); ctx.strokeStyle = '#2f6fae'; ctx.lineWidth = 2.4; ctx.stroke();
+      if (p > 0.2) { ctx.fillStyle = '#7cc3f5'; for (let k = 0; k < 4; k++) { ctx.beginPath(); ctx.arc(16 + k * 1.5, 3 + ((t * 60 + k * 5) % 16), 1.3, 0, 7); ctx.fill(); } }
+      break;
+    case 'seed': case 'fert': case 'feed':
+      ctx.fillStyle = tool === 'fert' ? '#c9b27a' : '#e7c98f'; ctx.beginPath(); ctx.moveTo(-6, 0); ctx.lineTo(6, 0); ctx.lineTo(8, 14); ctx.lineTo(-8, 14); ctx.closePath(); ctx.fill(); ctx.stroke();
+      if (tool === 'fert') { ctx.fillStyle = '#4f8a2c'; ctx.beginPath(); ctx.ellipse(0, 8, 2.5, 4, 0.4, 0, 7); ctx.fill(); }
+      break;
+    case 'hand': case 'stock':
+      ctx.fillStyle = tool === 'stock' ? '#9fd3f0' : '#d79a4e'; ctx.beginPath(); ctx.moveTo(-8, 2); ctx.lineTo(8, 2); ctx.lineTo(6, 13); ctx.lineTo(-6, 13); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, 2, 7, Math.PI, 0); ctx.stroke();
+      break;
+    case 'net':
+      ctx.fillStyle = '#8a5a2a'; rr(-1.5, -4, 3, 30, 1.5); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,246,223,.8)'; ctx.beginPath(); ctx.ellipse(0, 33, 8, 6, 0, 0, 7); ctx.fill(); ctx.stroke();
+      break;
+  }
+  ctx.restore();
+}
+function drawFarmer() {
+  const acting = F.task && !F.path.length && F.task.k !== 'move';
+  const p = acting ? F.act / ACT_T : -1;
+  const tool = acting ? F.task.tool : curTool();
+  const sw = F.moving ? Math.sin(F.walk) : 0, bob = F.moving ? Math.abs(Math.sin(F.walk)) * 2.2 : Math.sin(t * 2) * 0.5;
+  const dir = F.dir, side = dir === 'left' || dir === 'right', back = dir === 'up';
+  ctx.save(); ctx.translate(F.x, F.y);
+  ctx.fillStyle = 'rgba(20,30,10,.3)'; ctx.beginPath(); ctx.ellipse(0, 0, 15, 5.5, 0, 0, 7); ctx.fill();
+  if (dir === 'left') ctx.scale(-1, 1);
+  ctx.lineWidth = 1.4; ctx.strokeStyle = OUT;
+  const leg = (lx, lift) => { ctx.fillStyle = '#34507e'; rr(lx - 3.2, -14 - lift, 6.4, 13, 2); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#6b4423'; rr(lx - 3.8, -4 - lift, 8, 4.5, 2); ctx.fill(); ctx.stroke(); };
+  if (side) { leg(-2 + sw * 4, 0); leg(2 - sw * 4, 0); } else { leg(-5, Math.max(0, sw) * 2.5); leg(5, Math.max(0, -sw) * 2.5); }
+  ctx.translate(0, -bob);
+  let swing = 0;
+  if (acting) {
+    if (tool === 'hoe' || tool === 'shovel' || tool === 'net') swing = -2.6 + Math.min(1, p * 1.4) * 2.9;
+    else if (tool === 'seed' || tool === 'feed' || tool === 'fert') swing = -0.4 - Math.sin(p * Math.PI) * 1.2;
+    else swing = -0.5;
+  }
+  const arm = (ax, ang, withTool) => {
+    ctx.save(); ctx.translate(ax, -31); ctx.rotate(ang);
+    ctx.fillStyle = '#e0563a'; rr(-3.2, -1, 6.4, 11, 3); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#f3c9a0'; ctx.beginPath(); ctx.arc(0, 11.5, 3.2, 0, 7); ctx.fill(); ctx.stroke();
+    if (withTool) drawHeldTool(tool, p);
+    ctx.restore();
+  };
+  const armSw = F.moving ? sw * 0.6 : 0;
+  if (back) { arm(-12, 0.15 + armSw, false); arm(12, -0.15 + (acting ? -swing * 0.6 : -armSw), true); }
+  else if (!side) arm(-12, 0.15 + armSw, false);
+  // torso + overalls
+  ctx.fillStyle = '#e0563a'; rr(-11, -37, 22, 25, 7); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = 'rgba(120,20,10,.35)'; ctx.lineWidth = 1;
+  for (let k = -7; k <= 7; k += 5) { ctx.beginPath(); ctx.moveTo(k, -36); ctx.lineTo(k, -13); ctx.stroke(); }
+  ctx.strokeStyle = OUT; ctx.lineWidth = 1.4;
+  ctx.fillStyle = '#3d6fb0'; rr(-10.5, -26, 21, 14, 4); ctx.fill(); ctx.stroke();
+  if (!back) {
+    rr(-6, -34, 12, 9, 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#f6c63c'; ctx.beginPath(); ctx.arc(-3.5, -31, 1.2, 0, 7); ctx.arc(3.5, -31, 1.2, 0, 7); ctx.fill();
+  } else { ctx.beginPath(); ctx.moveTo(-6, -25); ctx.lineTo(-3, -36); ctx.moveTo(6, -25); ctx.lineTo(3, -36); ctx.strokeStyle = '#2f5a94'; ctx.lineWidth = 3; ctx.stroke(); ctx.strokeStyle = OUT; ctx.lineWidth = 1.4; }
+  if (side) arm(1, (acting ? swing : -armSw * 1.4), true);
+  else if (!back) arm(12, -0.15 - armSw + (acting ? swing * 0.5 : 0), true);
+  // head
+  ctx.fillStyle = '#f3c9a0'; ctx.beginPath(); ctx.arc(0, -48, 12, 0, 7); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#6b3e1f';
+  if (back) { ctx.beginPath(); ctx.arc(0, -48, 12, 0, 7); ctx.fill(); ctx.stroke(); }
+  else if (side) { ctx.beginPath(); ctx.arc(-2, -49, 11, Math.PI * 0.55, Math.PI * 1.5); ctx.closePath(); ctx.fill(); }
+  else { ctx.beginPath(); ctx.ellipse(0, -54, 11.5, 5, 0, Math.PI, 0); ctx.fill(); }
+  if (!back) {
+    ctx.fillStyle = OUT;
+    if (side) { ctx.beginPath(); ctx.arc(6.5, -48, 1.6, 0, 7); ctx.fill(); ctx.fillStyle = 'rgba(240,120,120,.45)'; ctx.beginPath(); ctx.arc(5, -44, 2.5, 0, 7); ctx.fill(); }
+    else {
+      ctx.beginPath(); ctx.arc(-4.2, -47.5, 1.7, 0, 7); ctx.arc(4.2, -47.5, 1.7, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.arc(0, -44.5, 3, 0.25, Math.PI - 0.25); ctx.stroke();
+      ctx.fillStyle = 'rgba(240,120,120,.45)'; ctx.beginPath(); ctx.arc(-7, -44, 2.4, 0, 7); ctx.arc(7, -44, 2.4, 0, 7); ctx.fill();
+    }
+  }
+  // straw hat
+  ctx.fillStyle = '#e8c56a'; ctx.beginPath(); ctx.ellipse(0, -57, 19, 6.5, 0, 0, 7); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(0, -60, 10.5, 8, 0, Math.PI, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#c4442b'; ctx.fillRect(-10.4, -62.5, 20.8, 3);
+  ctx.strokeStyle = 'rgba(150,110,40,.5)'; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.ellipse(0, -57, 15, 4.5, 0, 0, 7); ctx.stroke();
+  ctx.restore();
+}
+
+/* ================= backgrounds (pre-rendered once) ================= */
+let bg = null, BGS = 1, tiles = null, iconCache = new Map(), R = 1;
+function mk(w, h, sc) { sc = sc || R; const c = document.createElement('canvas'); c.width = Math.ceil(w * sc); c.height = Math.ceil(h * sc); const k = c.getContext('2d'); k.scale(sc, sc); return [c, k]; }
+function withCtx(k, fn) { const old = ctx; ctx = k; try { fn(); } finally { ctx = old; } }
+function drawTree3(x, y, s, fruit) {
+  ctx.fillStyle = 'rgba(20,40,10,.28)'; ctx.beginPath(); ctx.ellipse(x + s * 0.25, y + s * 0.95, s * 0.95, s * 0.32, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = '#7a4b22'; ctx.strokeStyle = 'rgba(40,20,5,.7)'; ctx.lineWidth = 1.5; rr(x - s * 0.13, y + s * 0.25, s * 0.26, s * 0.7, 3); ctx.fill(); ctx.stroke();
+  const blobs = [[0, -0.1, 0.8], [-0.55, 0.2, 0.55], [0.55, 0.2, 0.55], [0, 0.32, 0.6]];
+  ctx.fillStyle = '#356f25'; ctx.beginPath(); blobs.forEach(([bx, by, br]) => { ctx.moveTo(x + bx * s + br * s, y + by * s + 4); ctx.arc(x + bx * s, y + by * s + 4, br * s, 0, 7); }); ctx.fill();
+  ctx.fillStyle = '#468a30'; ctx.beginPath(); blobs.forEach(([bx, by, br]) => { ctx.moveTo(x + bx * s + br * s, y + by * s); ctx.arc(x + bx * s, y + by * s, br * s, 0, 7); }); ctx.fill();
+  ctx.fillStyle = '#5ea53e'; ctx.beginPath(); ctx.arc(x - s * 0.2, y - s * 0.3, s * 0.45, 0, 7); ctx.arc(x + s * 0.35, y - s * 0.05, s * 0.3, 0, 7); ctx.fill();
+  ctx.fillStyle = 'rgba(200,240,140,.35)'; ctx.beginPath(); ctx.arc(x - s * 0.3, y - s * 0.45, s * 0.2, 0, 7); ctx.fill();
+  if (fruit) { const r = seeded(Math.round(x * 7 + y)); for (let k = 0; k < 7; k++) fruitDot(x + (r() - 0.5) * s * 1.4, y + (r() - 0.6) * s * 0.9, s * 0.09); }
+}
+function fruitDot(x, y, r) { fruit(x, y, r, r, '#f39a1e'); }
+function poly(pts) { ctx.beginPath(); pts.forEach(([x, y], k) => k ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); }
+function drawPaths() {
+  const lines = [[[340, 350], [340, 425], [1215, 425], [1215, 1180]], [[615, 350], [615, 425]], [[640, 425], [640, 476]], [[1122, 770], [1215, 770]], [[1215, 300], [1250, 300]], [[1215, 640], [1250, 640]], [[1215, 980], [1250, 980]]];
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  ctx.strokeStyle = '#b48b58'; ctx.lineWidth = 54; lines.forEach(l => { poly(l); ctx.stroke(); });
+  ctx.strokeStyle = '#dcbc88'; ctx.lineWidth = 44; lines.forEach(l => { poly(l); ctx.stroke(); });
+  const r = seeded(19);
+  lines.forEach(l => { for (let s = 0; s < l.length - 1; s++) { const [x0, y0] = l[s], [x1, y1] = l[s + 1], n = Math.hypot(x1 - x0, y1 - y0) / 14; for (let k = 0; k < n; k++) { const q = r(); ctx.fillStyle = r() > 0.5 ? 'rgba(150,110,60,.45)' : 'rgba(255,240,210,.5)'; ctx.beginPath(); ctx.ellipse(x0 + (x1 - x0) * q + (r() - 0.5) * 36, y0 + (y1 - y0) * q + (r() - 0.5) * 36, 1.5 + r() * 3, 1 + r() * 2, 0, 0, 7); ctx.fill(); } } });
+}
+function fenceH(x0, x1, y, skip) {
+  ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(60,35,10,.8)';
+  const seg2 = (a, b) => { ctx.fillStyle = '#c8955a'; rr(a, y - 22, b - a, 5, 2); ctx.fill(); ctx.stroke(); rr(a, y - 12, b - a, 5, 2); ctx.fill(); ctx.stroke(); };
+  if (skip) { seg2(x0, skip[0]); seg2(skip[1], x1); } else seg2(x0, x1);
+  for (let x = x0; x <= x1 + 1; x += 32) { if (skip && x > skip[0] + 2 && x < skip[1] - 2) continue; ctx.fillStyle = '#a5713c'; rr(x - 4, y - 28, 8, 30, 2); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#c99a62'; ctx.fillRect(x - 3, y - 27, 6, 3); }
+}
+function fenceV(x, y0, y1, skip) {
+  ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(60,35,10,.8)';
+  const seg2 = (a, b) => { ctx.fillStyle = '#c8955a'; rr(x - 2.5, a - 20, 5, b - a, 2); ctx.fill(); ctx.stroke(); };
+  if (skip) { seg2(y0, skip[0]); seg2(skip[1], y1); } else seg2(y0, y1);
+  for (let y = y0; y <= y1 + 1; y += 30) { if (skip && y > skip[0] && y < skip[1]) continue; ctx.fillStyle = '#a5713c'; rr(x - 4, y - 26, 8, 28, 2); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#c99a62'; ctx.fillRect(x - 3, y - 25, 6, 3); }
+}
+function drawFieldGround() {
+  const g = { x: FENCE.x + 6, y: FENCE.y + 26, w: FENCE.w - 12, h: FENCE.h - 30 };
+  ctx.fillStyle = '#b98a58'; rr(g.x, g.y, g.w, g.h, 10); ctx.fill();
+  const r = seeded(61);
+  for (let k = 0; k < 1600; k++) { ctx.fillStyle = r() > 0.5 ? 'rgba(120,80,40,.3)' : 'rgba(230,200,150,.3)'; ctx.beginPath(); ctx.arc(g.x + r() * g.w, g.y + r() * g.h, 0.8 + r() * 1.6, 0, 7); ctx.fill(); }
+  for (let k = 0; k < 40; k++) { const x = g.x + r() * g.w, y = g.y + r() * g.h; ctx.strokeStyle = '#7fae4a'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(x - 3, y); ctx.lineTo(x, y - 5); ctx.lineTo(x + 3, y); ctx.stroke(); }
+}
+function drawFieldFence() {
+  const x0 = FENCE.x, x1 = FENCE.x + FENCE.w, y0 = FENCE.y + 26, y1 = FENCE.y + FENCE.h;
+  fenceV(x0, y0, y1); fenceV(x1, y0, y1, [742, 800]);
+  fenceH(x0, x1, y0, [604, 676]);
+  fenceH(x0, x1, y1);
+}
+function drawHouse3() {
+  const { x, y } = HOUSE, wx = x + 22, wy = y + 132, ww = 236, wh = 112;
+  ctx.fillStyle = 'rgba(20,40,10,.28)'; ctx.beginPath(); ctx.moveTo(x + 10, y + 248); ctx.lineTo(x + 292, y + 248); ctx.lineTo(x + 312, y + 214); ctx.lineTo(x + 300, y + 130); ctx.lineTo(x + 268, y + 248); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(x + 140, y + 248, 150, 12, 0, 0, 7); ctx.fill();
+  ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(50,30,10,.85)';
+  ctx.fillStyle = '#efcf93'; ctx.fillRect(wx, wy, ww, wh); ctx.strokeRect(wx, wy, ww, wh);
+  ctx.strokeStyle = 'rgba(170,120,60,.5)'; ctx.lineWidth = 1.2; for (let yy = wy + 13; yy < wy + wh - 16; yy += 13) { ctx.beginPath(); ctx.moveTo(wx, yy); ctx.lineTo(wx + ww, yy); ctx.stroke(); }
+  ctx.fillStyle = '#a39b8c'; ctx.fillRect(wx, wy + wh - 18, ww, 18);
+  const r = seeded(3); for (let k = 0; k < 14; k++) { ctx.fillStyle = ['#bdb5a6', '#8f887a', '#c9c2b2'][k % 3]; rr(wx + 2 + k * 16.8, wy + wh - 16 + (k % 2) * 2, 15, 7, 2); ctx.fill(); rr(wx + 10 + k * 16.8, wy + wh - 8, 14, 6, 2); ctx.fill(); }
+  ctx.strokeStyle = 'rgba(50,30,10,.85)'; ctx.lineWidth = 2;
+  const win = (ax) => { ctx.fillStyle = '#7a4b22'; ctx.fillRect(ax - 9, wy + 22, 9, 40); ctx.fillRect(ax + 44, wy + 22, 9, 40); ctx.fillStyle = '#bfe3f2'; ctx.fillRect(ax, wy + 22, 44, 40); ctx.strokeRect(ax, wy + 22, 44, 40); ctx.beginPath(); ctx.moveTo(ax + 22, wy + 22); ctx.lineTo(ax + 22, wy + 62); ctx.moveTo(ax, wy + 42); ctx.lineTo(ax + 44, wy + 42); ctx.stroke(); ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.fillRect(ax + 4, wy + 25, 6, 14); ctx.fillStyle = '#8a5a2a'; ctx.fillRect(ax - 4, wy + 64, 52, 8); for (let k = 0; k < 5; k++) { ctx.fillStyle = ['#e86a8a', '#f6c63c', '#ffffff'][k % 3]; ctx.beginPath(); ctx.arc(ax + 2 + k * 10, wy + 63, 3.5, 0, 7); ctx.fill(); } };
+  win(wx + 22); win(wx + 96);
+  const dx = wx + 170;
+  ctx.fillStyle = '#8a5a32'; ctx.beginPath(); ctx.moveTo(dx, wy + wh - 4); ctx.lineTo(dx, wy + 46); ctx.arc(dx + 24, wy + 46, 24, Math.PI, 0); ctx.lineTo(dx + 48, wy + wh - 4); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = 'rgba(50,25,10,.5)'; ctx.lineWidth = 1.2; for (let k = 1; k < 4; k++) { ctx.beginPath(); ctx.moveTo(dx + k * 12, wy + 30); ctx.lineTo(dx + k * 12, wy + wh - 4); ctx.stroke(); }
+  ctx.fillStyle = '#f6c63c'; ctx.beginPath(); ctx.arc(dx + 38, wy + 76, 2.6, 0, 7); ctx.fill();
+  ctx.fillStyle = '#b5ad9c'; ctx.strokeStyle = 'rgba(50,30,10,.7)'; rr(dx - 8, wy + wh - 4, 64, 10, 3); ctx.fill(); ctx.stroke();
+  // roof (seen from above-front)
+  ctx.strokeStyle = 'rgba(70,15,5,.9)'; ctx.lineWidth = 2;
+  ctx.fillStyle = '#c8452f'; poly([[x, y + 140], [x + 280, y + 140], [x + 248, y + 14], [x + 32, y + 14]]); ctx.closePath(); ctx.fill(); ctx.stroke();
+  for (let k = 0; k < 8; k++) {
+    const yy = y + 22 + k * 15.5, q = (yy - y - 14) / 126, lx = x + 32 - 32 * q, rx = x + 248 + 32 * q;
+    ctx.strokeStyle = 'rgba(110,25,10,.55)'; ctx.lineWidth = 1.4; ctx.beginPath();
+    for (let xx = lx; xx < rx; xx += 14) { ctx.moveTo(xx, yy); ctx.quadraticCurveTo(xx + 7, yy + 6, xx + 14, yy); }
+    ctx.stroke();
+  }
+  ctx.fillStyle = 'rgba(255,200,170,.35)'; poly([[x + 32, y + 14], [x + 248, y + 14], [x + 244, y + 30], [x + 36, y + 30]]); ctx.fill();
+  ctx.fillStyle = '#8e2f20'; ctx.strokeStyle = 'rgba(60,10,5,.9)'; rr(x - 4, y + 136, 288, 12, 3); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#9aa0a6'; rr(x + 190, y - 12, 32, 46, 3); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#6d7378'; ctx.fillRect(x + 186, y - 16, 40, 8);
+  ctx.fillStyle = '#e8c45a'; ctx.beginPath(); ctx.arc(dx + 60, wy + 40, 5, 0, 7); ctx.fill();
+  ctx.strokeStyle = '#333'; ctx.lineWidth = 1; ctx.strokeRect(dx + 55, wy + 34, 10, 12);
+}
+function drawBarn3() {
+  const { x, y } = BARN, wx = x + 12, wy = y + 126, ww = 206, wh = 110;
+  ctx.fillStyle = 'rgba(20,40,10,.28)'; ctx.beginPath(); ctx.ellipse(x + 125, y + 240, 130, 12, 0, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(x + 218, y + 240); ctx.lineTo(x + 252, y + 210); ctx.lineTo(x + 245, y + 130); ctx.lineTo(x + 218, y + 130); ctx.fill();
+  ctx.strokeStyle = 'rgba(60,10,5,.9)'; ctx.lineWidth = 2;
+  ctx.fillStyle = '#b8402c'; ctx.fillRect(wx, wy, ww, wh); ctx.strokeRect(wx, wy, ww, wh);
+  ctx.strokeStyle = 'rgba(90,20,10,.4)'; ctx.lineWidth = 1.4; for (let xx = wx + 12; xx < wx + ww; xx += 12) { ctx.beginPath(); ctx.moveTo(xx, wy); ctx.lineTo(xx, wy + wh); ctx.stroke(); }
+  ctx.strokeStyle = '#fff6df'; ctx.lineWidth = 4; ctx.strokeRect(wx + 2, wy + 2, ww - 4, wh - 4);
+  const dx = wx + 58, dy = wy + 18, dw = 90, dh = wh - 18;
+  ctx.fillStyle = '#9b3424'; ctx.fillRect(dx, dy, dw, dh);
+  ctx.strokeStyle = '#fff6df'; ctx.lineWidth = 4; ctx.strokeRect(dx, dy, dw, dh);
+  ctx.beginPath(); ctx.moveTo(dx + dw / 2, dy); ctx.lineTo(dx + dw / 2, dy + dh); ctx.moveTo(dx, dy); ctx.lineTo(dx + dw / 2, dy + dh); ctx.moveTo(dx + dw / 2, dy); ctx.lineTo(dx, dy + dh); ctx.moveTo(dx + dw / 2, dy); ctx.lineTo(dx + dw, dy + dh); ctx.moveTo(dx + dw, dy); ctx.lineTo(dx + dw / 2, dy + dh); ctx.stroke();
+  ctx.strokeStyle = 'rgba(60,10,5,.9)'; ctx.lineWidth = 2;
+  ctx.fillStyle = '#6f5444'; poly([[x - 6, y + 134], [x + 236, y + 134], [x + 214, y + 12], [x + 16, y + 12]]); ctx.closePath(); ctx.fill(); ctx.stroke();
+  for (let k = 0; k < 7; k++) { const yy = y + 22 + k * 16, q = (yy - y - 12) / 122, lx = x + 16 - 22 * q, rx = x + 214 + 22 * q; ctx.strokeStyle = 'rgba(40,25,15,.5)'; ctx.lineWidth = 1.3; ctx.beginPath(); for (let xx = lx; xx < rx; xx += 12) { ctx.moveTo(xx, yy); ctx.lineTo(xx + 12, yy); ctx.moveTo(xx + 6 * (k % 2), yy); ctx.lineTo(xx + 6 * (k % 2), yy + 8); } ctx.stroke(); }
+  ctx.fillStyle = 'rgba(255,230,200,.25)'; poly([[x + 16, y + 12], [x + 214, y + 12], [x + 210, y + 28], [x + 20, y + 28]]); ctx.fill();
+  ctx.fillStyle = '#4f3a2e'; ctx.strokeStyle = 'rgba(30,15,5,.9)'; rr(x - 10, y + 130, 250, 12, 3); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = '#3a2a1e'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x + 115, y + 12); ctx.lineTo(x + 115, y - 14); ctx.stroke();
+  ctx.fillStyle = '#3a2a1e'; ctx.beginPath(); ctx.moveTo(x + 105, y - 14); ctx.quadraticCurveTo(x + 115, y - 30, x + 128, y - 16); ctx.lineTo(x + 122, y - 12); ctx.closePath(); ctx.fill();
+  [[x - 30, y + 222], [x - 6, y + 230], [x - 22, y + 204]].forEach(([hx, hy]) => { ctx.fillStyle = '#e8c45a'; ctx.strokeStyle = 'rgba(120,80,20,.9)'; ctx.lineWidth = 1.5; rr(hx, hy, 30, 20, 5); ctx.fill(); ctx.stroke(); ctx.beginPath(); ctx.moveTo(hx + 4, hy + 7); ctx.lineTo(hx + 26, hy + 7); ctx.moveTo(hx + 4, hy + 13); ctx.lineTo(hx + 26, hy + 13); ctx.stroke(); });
+}
+function drawPasture() {
+  const P = PASTURE;
+  ctx.fillStyle = 'rgba(160,210,100,.35)'; rr(P.x, P.y + 20, P.w, P.h - 20, 12); ctx.fill();
+  const r = seeded(77); for (let k = 0; k < 90; k++) { const x = P.x + 10 + r() * (P.w - 20), y = P.y + 30 + r() * (P.h - 40); ctx.strokeStyle = '#7ab849'; ctx.lineWidth = 1.3; ctx.beginPath(); ctx.moveTo(x - 3, y); ctx.lineTo(x, y - 6); ctx.lineTo(x + 3, y); ctx.stroke(); }
+  ctx.fillStyle = '#8a5a2a'; ctx.strokeStyle = 'rgba(50,25,5,.9)'; ctx.lineWidth = 1.6; rr(P.x + 30, P.y + 50, 70, 22, 4); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#6fc0dc'; rr(P.x + 35, P.y + 54, 60, 12, 3); ctx.fill();
+  [[P.x + P.w - 60, P.y + 46], [P.x + P.w - 92, P.y + 56]].forEach(([hx, hy]) => { ctx.fillStyle = '#e8c45a'; ctx.strokeStyle = 'rgba(120,80,20,.9)'; rr(hx, hy, 34, 22, 6); ctx.fill(); ctx.stroke(); ctx.beginPath(); ctx.moveTo(hx + 5, hy + 8); ctx.lineTo(hx + 29, hy + 8); ctx.moveTo(hx + 5, hy + 15); ctx.lineTo(hx + 29, hy + 15); ctx.stroke(); });
+}
+function drawPastureFence() {
+  const P = PASTURE;
+  fenceH(P.x, P.x + P.w, P.y + 20); fenceV(P.x, P.y + 20, P.y + P.h); fenceV(P.x + P.w, P.y + 20, P.y + P.h); fenceH(P.x, P.x + P.w, P.y + P.h, [P.x + 130, P.x + 190]);
+}
+function drawDecor() {
+  // well
+  const wx = 466, wy = 318;
+  ctx.fillStyle = 'rgba(20,40,10,.25)'; ctx.beginPath(); ctx.ellipse(wx + 4, wy + 26, 30, 8, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = '#a39b8c'; ctx.strokeStyle = 'rgba(40,30,20,.8)'; ctx.lineWidth = 1.6; rr(wx - 24, wy, 48, 26, 6); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#2a5f7a'; ctx.beginPath(); ctx.ellipse(wx, wy + 2, 20, 7, 0, 0, 7); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#7a4b22'; ctx.fillRect(wx - 22, wy - 36, 5, 40); ctx.fillRect(wx + 17, wy - 36, 5, 40);
+  ctx.fillStyle = '#8e2f20'; poly([[wx - 30, wy - 30], [wx + 30, wy - 30], [wx + 20, wy - 46], [wx - 20, wy - 46]]); ctx.closePath(); ctx.fill(); ctx.stroke();
+  // mailbox
+  ctx.fillStyle = '#7a4b22'; ctx.fillRect(296, 370, 5, 26); ctx.fillStyle = '#3d8fdc'; ctx.strokeStyle = OUT; rr(286, 358, 26, 16, 6); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#e2392b'; ctx.fillRect(309, 352, 3, 10);
+  // lamps
+  [[760, 398], [1182, 392], [1182, 1050]].forEach(([lx, ly]) => { ctx.fillStyle = 'rgba(20,40,10,.25)'; ctx.beginPath(); ctx.ellipse(lx + 3, ly + 2, 9, 3, 0, 0, 7); ctx.fill(); ctx.fillStyle = '#3a3a3a'; ctx.fillRect(lx - 2, ly - 46, 4, 48); ctx.fillStyle = '#f6d673'; ctx.strokeStyle = '#2a2a2a'; ctx.lineWidth = 1.5; rr(lx - 6, ly - 58, 12, 14, 3); ctx.fill(); ctx.stroke(); });
+  // bench by the ponds
+  ctx.fillStyle = '#a5713c'; ctx.strokeStyle = 'rgba(50,25,5,.9)'; ctx.lineWidth = 1.5; rr(1290, 462, 64, 10, 2); ctx.fill(); ctx.stroke(); rr(1290, 448, 64, 8, 2); ctx.fill(); ctx.stroke(); ctx.fillRect(1294, 472, 4, 10); ctx.fillRect(1346, 472, 4, 10);
+  // scarecrow
+  const sx = 1160, sy = 620;
+  ctx.fillStyle = '#7a4b22'; ctx.fillRect(sx - 2, sy - 50, 4, 52); ctx.fillRect(sx - 20, sy - 38, 40, 4);
+  ctx.fillStyle = '#5b7fb5'; ctx.strokeStyle = OUT; rr(sx - 11, sy - 40, 22, 24, 4); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#e8c56a'; ctx.beginPath(); ctx.arc(sx, sy - 48, 9, 0, 7); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(sx, sy - 55, 15, 4.5, 0, 0, 7); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = OUT; ctx.beginPath(); ctx.arc(sx - 3, sy - 48, 1.2, 0, 7); ctx.arc(sx + 3, sy - 48, 1.2, 0, 7); ctx.fill();
+  // flower beds along the house
+  const r = seeded(13);
+  for (let k = 0; k < 26; k++) flower(160 + r() * 260, 368 + r() * 18, 3.2, ['#ef8fb0', '#f6c63c', '#ffffff', '#b9a3f0', '#f39a1e'][k % 5], '#f2a22a');
+  for (let k = 0; k < 18; k++) flower(1240 + r() * 40, 160 + r() * 980, 3, ['#ef8fb0', '#ffffff', '#f6c63c'][k % 3], '#f2a22a');
+  for (let k = 0; k < 12; k++) { const bx = 120 + r() * 1100, by = 1100 + r() * 40; ctx.fillStyle = '#4a8a2e'; ctx.beginPath(); ctx.arc(bx, by, 10, 0, 7); ctx.arc(bx - 8, by + 4, 7, 0, 7); ctx.arc(bx + 8, by + 4, 7, 0, 7); ctx.fill(); }
+}
+function drawPondBeds() {
+  PONDS.forEach((P, i) => {
+    const pd = S.ponds[i];
+    if (!pd.dug) {
+      ctx.setLineDash([10, 10]); ctx.strokeStyle = 'rgba(45,36,22,.4)'; ctx.lineWidth = 3; pondPath(P, 0); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(90,60,30,.12)'; pondPath(P, 0); ctx.fill();
+      return;
+    }
+    ctx.fillStyle = 'rgba(20,40,10,.25)'; pondPath(P, 14); ctx.fill();
+    ctx.fillStyle = '#8a6a43'; pondPath(P, 10); ctx.fill();
+    ctx.fillStyle = '#a58457'; pondPath(P, 5); ctx.fill();
+    const g = ctx.createRadialGradient(P.cx - P.rx * 0.2, P.cy - P.ry * 0.3, 10, P.cx, P.cy, P.rx);
+    g.addColorStop(0, '#7fd0e0'); g.addColorStop(0.6, '#46a6c4'); g.addColorStop(1, '#2a7a9a');
+    ctx.fillStyle = g; pondPath(P, 0); ctx.fill(); ctx.strokeStyle = 'rgba(30,40,30,.6)'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = 'rgba(10,40,60,.25)'; ctx.beginPath(); ctx.ellipse(P.cx, P.cy - P.ry * 0.78, P.rx * 0.8, P.ry * 0.2, 0, 0, 7); ctx.fill();
+    const r2 = seeded(31 + i);
+    for (let s = 0; s < 26; s++) { const th = r2() * 6.28, x = P.cx + Math.cos(th) * (P.rx + 8), y = P.cy + Math.sin(th) * (P.ry + 8); ctx.fillStyle = ['#b9b2a2', '#9e968a', '#c8c1b0'][s % 3]; ctx.beginPath(); ctx.ellipse(x, y, 6 + r2() * 5, 4 + r2() * 3, r2() * 3, 0, 7); ctx.fill(); }
+    for (let s = 0; s < 6; s++) { const th = -1.2 + r2() * 2.2, x = P.cx + Math.cos(th) * (P.rx + 2), y = P.cy + Math.sin(th) * (P.ry + 2); ctx.strokeStyle = '#4f8a2c'; ctx.lineWidth = 2; for (let q = -2; q <= 2; q++) { ctx.beginPath(); ctx.moveTo(x + q * 2, y); ctx.quadraticCurveTo(x + q * 3, y - 14, x + q * 4, y - 24 - r2() * 8); ctx.stroke(); } ctx.fillStyle = '#7a4b22'; ctx.beginPath(); ctx.ellipse(x + 1, y - 24, 2, 5, 0, 0, 7); ctx.fill(); }
+    // dock on the path side
+    const dx = P.cx - P.rx - 22, dy = P.cy - 2;
+    ctx.fillStyle = 'rgba(10,40,60,.3)'; ctx.fillRect(dx + 6, dy + 26, 70, 6);
+    ctx.fillStyle = '#b58350'; ctx.strokeStyle = OUT; ctx.lineWidth = 2; rr(dx, dy, 76, 28, 3); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = 'rgba(60,30,10,.5)'; ctx.lineWidth = 1; for (let q = 1; q < 7; q++) { ctx.beginPath(); ctx.moveTo(dx + q * 11, dy); ctx.lineTo(dx + q * 11, dy + 28); ctx.stroke(); }
+    ctx.fillStyle = '#7a4b22'; ctx.fillRect(dx + 68, dy + 26, 6, 10);
+  });
+}
+function buildBackgrounds() {
+  const [c, k] = mk(WW, WH, BGS);
+  withCtx(k, () => {
+    paintGrass(WW, WH, 11, 150);
+    drawPaths(); drawFieldGround(); drawPasture(); drawPondBeds();
+    const r = seeded(5), trees = [];
+    for (let x = 10; x < WW; x += 64 + r() * 30) trees.push([x, 26 + r() * 40, 34 + r() * 12, r() > 0.82]);
+    for (let y = 150; y < WH - 80; y += 78 + r() * 30) { trees.push([22 + r() * 30, y, 30 + r() * 10, r() > 0.8]); trees.push([WW - 30 - r() * 26, y, 30 + r() * 10, r() > 0.7]); }
+    for (let x = 40; x < WW - 30; x += 70 + r() * 30) trees.push([x, WH - 50 + r() * 20, 34 + r() * 10, r() > 0.85]);
+    trees.push([120, 420, 30, true], [1170, 200, 28, true], [1700, 470, 30, false], [1700, 820, 30, true]);
+    trees.sort((a, b) => a[1] - b[1]);
+    trees.filter(tr => tr[1] < 200).forEach(([x, y, s, f]) => drawTree3(x, y, s, f));
+    drawHouse3(); drawBarn3(); drawPastureFence(); drawDecor(); drawFieldFence();
+    trees.filter(tr => tr[1] >= 200).forEach(([x, y, s, f]) => drawTree3(x, y, s, f));
+  });
+  bg = c;
+  tiles = buildTiles();
+}
+function buildTiles() {
+  const PW = FIELD.pw, PH = FIELD.ph, TS = BGS * 1.2;
+  const tile = fn => { const [tc, tk] = mk(PW, PH + BED_H, TS); withCtx(tk, fn); return tc; };
+  return {
+    grass: tile(() => {
+      ctx.fillStyle = '#5f9f38'; rr(0, 4, PW, PH + BED_H - 4, 12); ctx.fill();
+      ctx.fillStyle = '#6aad40'; rr(0, 0, PW, PH, 12); ctx.fill();
+      const r = seeded(77); ctx.strokeStyle = '#4c8d2a'; ctx.lineWidth = 1.5;
+      for (let k = 0; k < 26; k++) { const x = 6 + r() * (PW - 12), y = 8 + r() * (PH - 12), s = 3 + r() * 4; ctx.beginPath(); ctx.moveTo(x - s * 0.6, y); ctx.lineTo(x, y - s); ctx.lineTo(x + s * 0.6, y); ctx.stroke(); }
+    }),
+    soil: tile(() => {
+      ctx.fillStyle = 'rgba(50,30,10,.25)'; rr(2, 8, PW, PH + BED_H - 6, 12); ctx.fill();
+      ctx.fillStyle = '#6e4322'; rr(0, 6, PW, PH + BED_H - 6, 12); ctx.fill();
+      ctx.fillStyle = 'rgba(0,0,0,.12)'; for (let k = 0; k < 9; k++) { ctx.beginPath(); ctx.arc(8 + k * 11, PH + 5, 2, 0, 7); ctx.fill(); }
+      const g = ctx.createLinearGradient(0, 0, 0, PH); g.addColorStop(0, '#a87244'); g.addColorStop(1, '#8e5c33');
+      ctx.fillStyle = g; rr(0, 0, PW, PH, 12); ctx.fill();
+      const r = seeded(41);
+      for (let k = 0; k < 130; k++) { ctx.fillStyle = r() > 0.5 ? 'rgba(60,35,15,.35)' : 'rgba(210,160,110,.3)'; ctx.beginPath(); ctx.arc(4 + r() * (PW - 8), 4 + r() * (PH - 8), 0.6 + r() * 1.2, 0, 7); ctx.fill(); }
+      for (let k = 1; k <= 3; k++) { const fy = k * PH / 4 + 4; ctx.strokeStyle = 'rgba(55,32,12,.5)'; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(10, fy); ctx.lineTo(PW - 10, fy); ctx.stroke(); ctx.strokeStyle = 'rgba(220,170,120,.35)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(10, fy - 3); ctx.lineTo(PW - 10, fy - 3); ctx.stroke(); }
+      ctx.strokeStyle = 'rgba(255,220,170,.35)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(10, 1.5); ctx.lineTo(PW - 10, 1.5); ctx.stroke();
+    }),
+    wild: [0, 1, 2].map(v => tile(() => {
+      const r = seeded(100 + v * 17);
+      ctx.fillStyle = 'rgba(60,100,35,.35)'; rr(2, 2, PW - 4, PH + BED_H - 4, 12); ctx.fill();
+      for (let k = 0; k < 18; k++) { const x = 6 + r() * (PW - 12), y = 10 + r() * (PH - 6); ctx.strokeStyle = '#3f7d26'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(x - 4, y); ctx.lineTo(x - 1, y - 10); ctx.moveTo(x, y); ctx.lineTo(x + 1, y - 13); ctx.moveTo(x + 4, y); ctx.lineTo(x + 2, y - 9); ctx.stroke(); }
+      for (let k = 0; k < 2 + v; k++) { const x = 16 + r() * (PW - 32), y = 24 + r() * (PH - 30), s = 8 + r() * 7; ctx.fillStyle = '#3f7d26'; ctx.beginPath(); ctx.arc(x, y + 3, s, 0, 7); ctx.arc(x - s * 0.7, y + 6, s * 0.7, 0, 7); ctx.arc(x + s * 0.7, y + 6, s * 0.7, 0, 7); ctx.fill(); ctx.fillStyle = '#549a36'; ctx.beginPath(); ctx.arc(x, y, s, 0, 7); ctx.arc(x - s * 0.7, y + 3, s * 0.7, 0, 7); ctx.arc(x + s * 0.7, y + 3, s * 0.7, 0, 7); ctx.fill(); }
+      for (let k = 0; k < 2; k++) { const x = 12 + r() * (PW - 24), y = 14 + r() * (PH - 14); ctx.fillStyle = '#8f887a'; ctx.beginPath(); ctx.ellipse(x, y + 2, 7, 4.5, 0, 0, 7); ctx.fill(); ctx.fillStyle = '#b4ad9f'; ctx.beginPath(); ctx.ellipse(x, y, 7, 4.5, 0, 0, 7); ctx.fill(); }
+      ctx.setLineDash([6, 6]); ctx.strokeStyle = 'rgba(45,36,22,.35)'; ctx.lineWidth = 2; rr(2, 2, PW - 4, PH + BED_H - 4, 12); ctx.stroke(); ctx.setLineDash([]);
+    })),
+  };
+}
+
+/* ================= per-frame world drawing ================= */
+function drawBed(i) {
+  const r = plotRect(i), p = S.plots[i];
+  if (i >= S.unlocked) { ctx.drawImage(tiles.wild[i % 3], r.x, r.y, r.w, r.h + BED_H); return; }
+  ctx.drawImage(p.s === 'grass' ? tiles.grass : tiles.soil, r.x, r.y, r.w, r.h + BED_H);
+  if (p.s !== 'grass' && p.w > 0) { ctx.fillStyle = 'rgba(45,28,18,' + (p.w / 100 * 0.42) + ')'; rr(r.x, r.y, r.w, r.h, 12); ctx.fill(); }
+  if (p.f && p.s === 'crop') { ctx.fillStyle = '#f6d04a'; for (let k = 0; k < 9; k++) { ctx.beginPath(); ctx.arc(r.x + 10 + (k * 37) % (r.w - 20), r.y + 12 + (k * 23) % (r.h - 20), 1.6, 0, 7); ctx.fill(); } }
+  if (p.s === 'crop' && p.p < 1) {
+    const by = r.y + r.h + 1.5;
+    ctx.fillStyle = 'rgba(255,246,223,.85)'; rr(r.x + 8, by, r.w - 16, 4, 2); ctx.fill(); rr(r.x + 8, by + 5, r.w - 16, 4, 2); ctx.fill();
+    if (p.w > 0) { ctx.fillStyle = '#3d8fdc'; rr(r.x + 8, by, Math.max(2, (r.w - 16) * p.w / 100), 4, 2); ctx.fill(); }
+    ctx.fillStyle = '#58b032'; rr(r.x + 8, by + 5, Math.max(2, (r.w - 16) * p.p), 4, 2); ctx.fill();
+  }
+}
+function plantDrawables(i, out) {
+  const r = plotRect(i), p = S.plots[i];
+  if (i >= S.unlocked || (p.s !== 'crop' && p.s !== 'dead')) return;
+  const c = CROP[p.c], spots = SPOTS[c ? c.spots : 2], base = r.h / 86;
+  spots.forEach(([sx, sy, sc], k) => {
+    const x = r.x + sx * r.w, y = r.y + sy * r.h;
+    out.push({ y, f: () => {
+      ctx.save(); ctx.translate(x, y); ctx.scale(base * sc, base * sc);
+      if (p.s === 'crop') ctx.rotate(Math.sin(t * 1.6 + i * 0.7 + k) * 0.035);
+      drawPlant(p.c, p.s === 'dead' ? Math.max(p.p, 0.5) : p.p, p.s === 'dead');
+      ctx.restore();
+    } });
+  });
+}
+function drawPlotOverlay(i, queued) {
+  const r = plotRect(i), p = S.plots[i];
+  if (i >= S.unlocked) {
+    if (i === S.unlocked) {
+      ctx.fillStyle = '#7a4b22'; ctx.fillRect(r.x + r.w / 2 - 3, r.y + r.h / 2, 6, 24);
+      ctx.fillStyle = '#f2c95a'; ctx.strokeStyle = OUT; ctx.lineWidth = 2; rr(r.x + 6, r.y + r.h / 2 - 30, r.w - 12, 40, 8); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = OUT; ctx.font = '15px Itim, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('ขยายแปลง', r.x + r.w / 2, r.y + r.h / 2 - 19); ctx.fillText('฿' + landCost(S.unlocked).toLocaleString(), r.x + r.w / 2, r.y + r.h / 2 - 3);
+    }
+    return;
+  }
+  if (p.s === 'crop' && p.p < 1 && p.w <= 0 && Math.floor(t * 3) % 2 === 0) {
+    const dx = r.x + r.w - 14, dy = r.y + 18;
+    ctx.fillStyle = '#3d8fdc'; ctx.strokeStyle = OUT; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(dx, dy - 10); ctx.quadraticCurveTo(dx + 9, dy + 2, dx, dy + 5); ctx.quadraticCurveTo(dx - 9, dy + 2, dx, dy - 10); ctx.fill(); ctx.stroke();
+  }
+  if (p.s === 'crop' && p.p >= 1) {
+    const warn = p.ripe > 90, pulse = 0.5 + 0.5 * Math.sin(t * 4);
+    ctx.strokeStyle = warn ? 'rgba(196,68,43,' + (0.5 + pulse * 0.5) + ')' : 'rgba(255,230,90,' + (0.5 + pulse * 0.5) + ')'; ctx.lineWidth = 3; rr(r.x - 1, r.y - 1, r.w + 2, r.h + BED_H + 2, 13); ctx.stroke();
+    for (let k = 0; k < 3; k++) { const a = t * 2 + k * 2.1; sparkle(r.x + r.w / 2 + Math.cos(a) * r.w * 0.38, r.y + r.h * 0.45 + Math.sin(a) * r.h * 0.4, 3.5 + Math.sin(t * 6 + k) * 1.5, warn ? '#ff8a6a' : '#fff6a0'); }
+  }
+  if (queued) { ctx.setLineDash([7, 5]); ctx.lineDashOffset = -t * 20; ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.lineWidth = 2.5; rr(r.x + 3, r.y + 3, r.w - 6, r.h + BED_H - 6, 10); ctx.stroke(); ctx.setLineDash([]); }
+  if (i === hover) { ctx.strokeStyle = '#fff6df'; ctx.lineWidth = 3; rr(r.x - 3, r.y - 3, r.w + 6, r.h + BED_H + 6, 14); ctx.stroke(); }
+}
+function drawSmoke() {
+  const cx = HOUSE.x + 206, cy = HOUSE.y - 18;
+  for (let k = 0; k < 3; k++) { const ph = (t * 0.4 + k / 3) % 1; ctx.globalAlpha = (1 - ph) * 0.75; ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(cx + Math.sin(ph * 6) * 8, cy - ph * 60, 7 + ph * 14, 0, 7); ctx.fill(); }
+  ctx.globalAlpha = 1;
+}
+function drawBarnSign() {
+  const { x, y, w } = BARN, bob = Math.sin(t * 3) * 2, sx = x + w / 2, sy = y + 112 + bob;
+  ctx.strokeStyle = OUT; ctx.lineWidth = 2.5;
+  ctx.fillStyle = '#f6c63c'; rr(sx - 46, sy - 16, 92, 32, 8); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = OUT; ctx.font = '21px Itim, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('ตลาด', sx, sy + 1);
+  const total = Object.values(S.barn).reduce((a, b) => a + b, 0);
+  if (total) { ctx.fillStyle = '#fff6df'; ctx.beginPath(); ctx.arc(sx + 50, sy - 14, 16, 0, 7); ctx.fill(); ctx.stroke(); ctx.fillStyle = OUT; ctx.font = '15px Itim, sans-serif'; ctx.fillText(total > 999 ? '999+' : total, sx + 50, sy - 13); }
+  if (S.order && !S.order.done) { ctx.fillStyle = '#c4442b'; ctx.beginPath(); ctx.arc(sx - 50, sy - 14, 11, 0, 7); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#fff'; ctx.font = '16px Itim, sans-serif'; ctx.fillText('!', sx - 50, sy - 13); }
+}
+function drawMoveMarker() {
+  const k = F.task && F.task.k === 'move' ? F.task : null;
+  if (!k) return;
+  const s = 1 + Math.sin(t * 8) * 0.15;
+  ctx.strokeStyle = 'rgba(255,246,223,.9)'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.ellipse(k.x, k.y, 14 * s, 6 * s, 0, 0, 7); ctx.stroke();
+}
+function draw(dt) {
+  const z = cam.z, vw = cssW / z, vh = cssH / z;
+  ctx.setTransform(dpr * z, 0, 0, dpr * z, -cam.x * dpr * z, -cam.y * dpr * z);
+  ctx.fillStyle = '#3f7d2a'; ctx.fillRect(cam.x - 2, cam.y - 2, vw + 4, vh + 4);
+  const sx = Math.max(0, cam.x), sy = Math.max(0, cam.y), sw = Math.min(WW, cam.x + vw) - sx, sh = Math.min(WH, cam.y + vh) - sy;
+  if (sw > 0 && sh > 0) ctx.drawImage(bg, sx * BGS, sy * BGS, sw * BGS, sh * BGS, sx, sy, sw, sh);
+  const vis = (x, y, w, h) => x + w > cam.x - 40 && x < cam.x + vw + 40 && y + h > cam.y - 90 && y < cam.y + vh + 40;
+  drawPonds(dt);
+  const visPlots = [];
+  for (let i = 0; i < MAX_PLOTS; i++) { const r = plotRect(i); if (vis(r.x, r.y, r.w, r.h + BED_H)) { visPlots.push(i); drawBed(i); } }
+  const items = [];
+  visPlots.forEach(i => plantDrawables(i, items));
+  animals.forEach(a => { if (vis(a.x - 40, a.y - 50, 80, 60)) items.push({ y: a.y, f: () => (a.k === 'cow' ? drawCow(a) : drawHen(a)) }); });
+  items.push({ y: F.y, f: drawFarmer });
+  items.sort((a, b) => a.y - b.y).forEach(o => o.f());
+  const q = new Set(allTasks().filter(k => k.k === 'plot').map(k => k.i));
+  visPlots.forEach(i => drawPlotOverlay(i, q.has(i)));
+  drawMoveMarker(); drawSmoke(); drawBarnSign(); drawSprinklers(); drawButterflies(dt);
+  drawClouds(dt); drawFx(dt);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  drawRain(dt);
+  const dusk = Math.max(0, (S.clock / DAY - 0.78) / 0.22);
+  if (dusk > 0) { ctx.fillStyle = 'rgba(40,30,90,' + dusk * 0.22 + ')'; ctx.fillRect(0, 0, cssW, cssH); }
+}
+
+/* ================= camera ================= */
+let dpr = 1, cssW = 0, cssH = 0, baseZ = 1, zoomMul = 1, follow = true, camTarget = null;
+const cam = { x: 300, y: 250, z: 1 };
+function clampCam() {
+  const vw = cssW / cam.z, vh = cssH / cam.z;
+  cam.x = vw >= WW ? (WW - vw) / 2 : Math.max(0, Math.min(WW - vw, cam.x));
+  cam.y = vh >= WH ? (WH - vh) / 2 : Math.max(0, Math.min(WH - vh, cam.y));
+}
+function setZoom(mul, px, py) {
+  mul = Math.max(0.55, Math.min(1.9, mul));
+  px = px ?? cssW / 2; py = py ?? cssH / 2;
+  const wx = cam.x + px / cam.z, wy = cam.y + py / cam.z;
+  zoomMul = mul; cam.z = baseZ * zoomMul;
+  cam.x = wx - px / cam.z; cam.y = wy - py / cam.z; clampCam();
+}
+function lookAt(x, y) { camTarget = { x, y, ttl: 1.2 }; follow = false; }
+function updateCam(dt) {
+  const vw = cssW / cam.z, vh = cssH / cam.z;
+  let tx = cam.x, ty = cam.y;
+  if (camTarget) { tx = camTarget.x - vw / 2; ty = camTarget.y - vh / 2; camTarget.ttl -= dt; if (camTarget.ttl <= 0) camTarget = null; }
+  else if (follow) {
+    const mx = vw * 0.3, my = vh * 0.3, fy = F.y - 30;
+    if (F.x < cam.x + mx) tx = F.x - mx; if (F.x > cam.x + vw - mx) tx = F.x - vw + mx;
+    if (fy < cam.y + my) ty = fy - my; if (fy > cam.y + vh - my) ty = fy - vh + my;
+  }
+  const k = Math.min(1, dt * 5); cam.x += (tx - cam.x) * k; cam.y += (ty - cam.y) * k; clampCam();
+  $('followBtn').setAttribute('aria-pressed', String(follow));
+}
+
+/* ================= input: tap to work, drag to pan, pinch/wheel to zoom ================= */
+const pointers = new Map();
+let gesture = null;
+function toWorld(e) { const r = cv.getBoundingClientRect(); const px = e.clientX - r.left, py = e.clientY - r.top; return [cam.x + px / cam.z, cam.y + py / cam.z, px, py]; }
+cv.addEventListener('pointerdown', e => {
+  cv.setPointerCapture(e.pointerId);
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (pointers.size === 1) gesture = { sx: e.clientX, sy: e.clientY, moved: false, pinch: false };
+  else if (pointers.size === 2) { const [a, b] = [...pointers.values()]; gesture = { pinch: true, d0: Math.hypot(a.x - b.x, a.y - b.y), z0: zoomMul, moved: true }; }
+});
+cv.addEventListener('pointermove', e => {
+  const [wx, wy] = toWorld(e);
+  if (!pointers.has(e.pointerId)) { hover = S.mode === 'field' ? plotAt(wx, wy) : -1; cv.style.cursor = inBarn(wx, wy) || hover >= 0 || pondAt(wx, wy) >= 0 ? 'pointer' : 'grab'; return; }
+  const prev = pointers.get(e.pointerId); pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (!gesture) return;
+  if (gesture.pinch && pointers.size === 2) {
+    const [a, b] = [...pointers.values()], r = cv.getBoundingClientRect();
+    setZoom(gesture.z0 * Math.hypot(a.x - b.x, a.y - b.y) / gesture.d0, (a.x + b.x) / 2 - r.left, (a.y + b.y) / 2 - r.top);
+    follow = false; return;
+  }
+  if (!gesture.moved && Math.hypot(e.clientX - gesture.sx, e.clientY - gesture.sy) > 8) { gesture.moved = true; follow = false; camTarget = null; }
+  if (gesture.moved) { cam.x -= (e.clientX - prev.x) / cam.z; cam.y -= (e.clientY - prev.y) / cam.z; clampCam(); cv.style.cursor = 'grabbing'; }
+});
+function endPointer(e) {
+  const g = gesture, single = pointers.size === 1;
+  pointers.delete(e.pointerId);
+  if (pointers.size === 0) { gesture = null; cv.style.cursor = 'grab'; }
+  if (e.type === 'pointerup' && g && single && !g.moved && !g.pinch) { const [wx, wy] = toWorld(e); handleTap(wx, wy); }
+}
+cv.addEventListener('pointerup', endPointer); cv.addEventListener('pointercancel', endPointer);
+cv.addEventListener('contextmenu', e => e.preventDefault());
+cv.addEventListener('pointerleave', () => { if (!pointers.size) hover = -1; });
+cv.addEventListener('wheel', e => { e.preventDefault(); const r = cv.getBoundingClientRect(); setZoom(zoomMul * (e.deltaY < 0 ? 1.12 : 1 / 1.12), e.clientX - r.left, e.clientY - r.top); }, { passive: false });
+function handleTap(wx, wy) {
+  if (inBarn(wx, wy)) { openMarket(Object.values(S.barn).some(n => n) || (S.order && !S.order.done) ? 'sell' : undefined); return; }
+  const pi = pondAt(wx, wy);
+  if (pi >= 0) { if (S.mode !== 'pond') setMode('pond', false); tapPond(pi, wx, wy); return; }
+  const i = plotAt(wx, wy);
+  if (i >= 0) { if (S.mode !== 'field') setMode('field', false); tapPlot(i); return; }
+  if (inRect(wx, wy, HOUSE)) { toast('บ้านของคุณ · เกมบันทึกให้อัตโนมัติ'); return; }
+  queue.length = 0; queue.push({ k: 'move', x: Math.max(20, Math.min(WW - 20, wx)), y: Math.max(60, Math.min(WH - 20, wy)) });
+}
+$('zoomIn').addEventListener('click', () => setZoom(zoomMul * 1.25));
+$('zoomOut').addEventListener('click', () => setZoom(zoomMul / 1.25));
+$('followBtn').addEventListener('click', () => { follow = true; camTarget = null; lookAt(F.x, F.y - 30); setTimeout(() => { follow = true; }, 0); });
+
+/* ================= DOM UI ================= */
+const TOOL_SVG = {
+  hoe: '<path d="M6 27 L22 9" stroke="#7a4b22" stroke-width="4" stroke-linecap="round"/><path d="M19 5 L28 6 L26 13 Z" fill="#9aa6ad" stroke="#2d2416" stroke-width="2" stroke-linejoin="round"/>',
+  seed: '<path d="M9 9 Q16 4 23 9 L26 26 Q16 30 6 26 Z" fill="#e7c98f" stroke="#2d2416" stroke-width="2" stroke-linejoin="round"/><path d="M10 9 Q16 12 22 9" fill="none" stroke="#2d2416" stroke-width="2"/><circle cx="13" cy="19" r="1.8" fill="#7a4b22"/><circle cx="18" cy="21" r="1.8" fill="#7a4b22"/><circle cx="16" cy="16" r="1.8" fill="#7a4b22"/>',
+  water: '<path d="M8 13 H21 V26 H8 Z" fill="#3d8fdc" stroke="#2d2416" stroke-width="2" stroke-linejoin="round"/><path d="M21 16 L29 10" stroke="#2d2416" stroke-width="3" stroke-linecap="round"/><path d="M10 13 Q14 6 19 13" fill="none" stroke="#2d2416" stroke-width="2"/><circle cx="30" cy="14" r="1.3" fill="#3d8fdc"/><circle cx="28" cy="17" r="1.3" fill="#3d8fdc"/>',
+  fert: '<path d="M7 8 H25 L27 27 H5 Z" fill="#c9b27a" stroke="#2d2416" stroke-width="2" stroke-linejoin="round"/><path d="M16 22 Q11 17 15 12 Q20 16 16 22 Z" fill="#4f8a2c" stroke="#2d2416" stroke-width="1.5"/>',
+  hand: '<path d="M5 14 H27 L24 27 H8 Z" fill="#d79a4e" stroke="#2d2416" stroke-width="2" stroke-linejoin="round"/><path d="M9 14 Q16 2 23 14" fill="none" stroke="#2d2416" stroke-width="2.5"/><circle cx="12" cy="13" r="3" fill="#d9412b" stroke="#2d2416" stroke-width="1.5"/><circle cx="19" cy="12" r="3" fill="#f39a1e" stroke="#2d2416" stroke-width="1.5"/>',
+  shovel: '<path d="M8 4 L20 18" stroke="#7a4b22" stroke-width="4" stroke-linecap="round"/><path d="M18 15 L26 21 Q28 27 22 28 Q17 27 15 21 Z" fill="#9aa6ad" stroke="#2d2416" stroke-width="2" stroke-linejoin="round"/>',
+  stock: '<path d="M7 12 H25 L23 28 H9 Z" fill="#9fd3f0" stroke="#2d2416" stroke-width="2" stroke-linejoin="round"/><path d="M10 19 Q15 14 20 19 Q15 24 10 19 Z M20 19 L24 16 V22 Z" fill="#f39a1e" stroke="#2d2416" stroke-width="1.3"/><path d="M7 12 Q16 4 25 12" fill="none" stroke="#2d2416" stroke-width="2"/>',
+  feed: '<path d="M8 6 H22 L25 26 H5 Z" fill="#e7c98f" stroke="#2d2416" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="17" r="1.6" fill="#8a5a2a"/><circle cx="17" cy="20" r="1.6" fill="#8a5a2a"/><circle cx="15" cy="14" r="1.6" fill="#8a5a2a"/><circle cx="27" cy="27" r="1.4" fill="#8a5a2a"/><circle cx="29" cy="22" r="1.4" fill="#8a5a2a"/>',
+  net: '<path d="M4 28 L15 17" stroke="#7a4b22" stroke-width="3.5" stroke-linecap="round"/><ellipse cx="21" cy="11" rx="8" ry="7" fill="#fff6df" stroke="#2d2416" stroke-width="2"/><path d="M15 7 L27 15 M15 15 L27 7 M21 4 V18" stroke="#2d2416" stroke-width="1"/>',
+};
+const TOOL_NAME = { hoe: 'ไถดิน', seed: 'หว่านเมล็ด', water: 'รดน้ำ', fert: 'ปุ๋ย ฿5', hand: 'เก็บผลผลิต', shovel: 'ถอนต้นตาย', stock: 'ปล่อยปลา', feed: 'ให้อาหาร ฿3', net: 'ช้อนปลา' };
+const SCENE_TOOLS = { field: ['hoe', 'seed', 'water', 'fert', 'hand', 'shovel'], pond: ['stock', 'feed', 'net'] };
+const HOWTO = {
+  field: '<span><b>แตะแปลง</b> ชาวไร่จะเดินไปทำงานให้ (แตะหลายแปลงเข้าคิวได้)</span><span><b>1</b> ไถ <b>2</b> หว่าน <b>3</b> รดน้ำ <b>4</b> ปุ๋ย <b>5</b> เก็บ <b>6</b> ถอน</span><span>· ลากเพื่อเลื่อนกล้อง · ถ่างนิ้วหรือกด +/− เพื่อซูม · แตะโรงนาเพื่อเปิดตลาด</span>',
+  pond: '<span><b>1</b> เลือกลูกปลาแล้วแตะบ่อเพื่อปล่อย</span><span><b>2</b> ให้อาหาร ปลาโตเฉพาะตอนอิ่ม</span><span><b>3</b> ช้อนปลาที่มีประกายไปขาย</span><span>· บ่อละ ' + POND_CAP + ' ตัว · ขุดได้ 3 บ่อ · ชาวไร่จะเดินไปที่ท่าน้ำให้</span>',
+};
+function renderShelf() {
+  const shelf = $('shelf'); shelf.innerHTML = '';
+  SCENE_TOOLS[S.mode].forEach((id, k) => {
+    const b = document.createElement('button'); b.className = 'tool'; b.dataset.tool = id;
+    b.setAttribute('aria-pressed', String(curTool() === id));
+    b.innerHTML = '<svg viewBox="0 0 32 32">' + TOOL_SVG[id] + '</svg>' + TOOL_NAME[id] + '<kbd>' + (k + 1) + '</kbd>';
+    b.addEventListener('click', () => setTool(id));
+    shelf.appendChild(b);
+  });
+  const m = document.createElement('button'); m.className = 'tool shop';
+  m.innerHTML = '<svg viewBox="0 0 32 32"><path d="M4 14 L16 5 L28 14 Z" fill="#d9412b" stroke="#2d2416" stroke-width="2" stroke-linejoin="round"/><rect x="7" y="14" width="18" height="13" fill="#fff6df" stroke="#2d2416" stroke-width="2"/><rect x="13" y="18" width="6" height="9" fill="#b5793f" stroke="#2d2416" stroke-width="2"/></svg>ตลาด<kbd>M</kbd>';
+  m.addEventListener('click', () => openMarket());
+  shelf.appendChild(m);
+  $('howto').innerHTML = HOWTO[S.mode];
+}
+function setTool(id) {
+  if (S.mode === 'field') S.toolF = id; else S.toolP = id;
+  document.querySelectorAll('.tool[data-tool]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tool === id)));
+  renderTray();
+}
+function setMode(m, pan) {
+  S.mode = m;
+  $('tabField').setAttribute('aria-selected', String(m === 'field'));
+  $('tabPond').setAttribute('aria-selected', String(m === 'pond'));
+  hover = -1; renderShelf(); renderTray();
+  if (pan !== false) { if (m === 'field') lookAt(FIELD.x + FIELD.w / 2, FIELD.y + 180); else lookAt(PONDS[0].cx - 40, (PONDS[0].cy + PONDS[1].cy) / 2); }
+  if (m === 'pond' && !S.ponds.some(p => p.dug)) toast(S.level < POND[0].lvl ? 'ขุดบ่อปลาได้เมื่อถึงเลเวล ' + POND[0].lvl : 'แตะป้าย "ขุดสระ" เพื่อสร้างบ่อแรก');
+}
+function paintInto(el, src) { el.width = src.width; el.height = src.height; el.getContext('2d').drawImage(src, 0, 0); }
+function renderTray() {
+  const tray = $('tray'); tray.innerHTML = '';
+  const list = S.mode === 'field' ? CROPS : FISH;
+  for (const c of list) {
+    const b = document.createElement('button'), locked = c.lvl > S.level, fish = isFish(c.id);
+    b.className = 'seed' + (locked ? ' locked' : '') + (fish ? ' fish' : '');
+    const sel = fish ? (S.toolP === 'stock' && S.fsel === c.id) : (S.toolF === 'seed' && S.seed === c.id);
+    b.setAttribute('aria-pressed', String(sel));
+    const cv2 = document.createElement('canvas'); paintInto(cv2, itemIcon(c.id, 32)); b.appendChild(cv2);
+    const s = document.createElement('span');
+    const have = fish ? (S.fry[c.id] || 0) : (S.seeds[c.id] || 0);
+    s.innerHTML = locked ? c.name + ' · Lv ' + c.lvl : c.name + ' <b>×' + have + '</b>';
+    b.appendChild(s);
+    b.addEventListener('click', () => {
+      if (locked) { toast(c.name + ' ปลดล็อกที่เลเวล ' + c.lvl); return; }
+      if (fish) { S.fsel = c.id; setTool('stock'); } else { S.seed = c.id; setTool('seed'); }
+      if (!have) toast((fish ? 'ลูกปลา' : 'เมล็ด') + c.name + 'หมด · กด "ตลาด" เพื่อซื้อ');
+    });
+    tray.appendChild(b);
+  }
+}
+let hudCache = '';
+function hud() {
+  const key = [S.money, S.level, S.xp, S.day].join('|');
+  if (key !== hudCache) {
+    hudCache = key;
+    $('money').textContent = S.money.toLocaleString('th-TH');
+    $('level').textContent = S.level;
+    const prev = S.level > 1 ? xpNeed(S.level - 1) : 0;
+    $('xp').style.width = Math.min(100, (S.xp - prev) / (xpNeed(S.level) - prev) * 100) + '%';
+    $('day').textContent = S.day;
+  }
+  $('rainChip').hidden = !(S.rain > 0);
+  const a = S.clock / DAY * Math.PI * 2;
+  $('clockhand').setAttribute('d', 'M10 10 L' + (10 + Math.sin(a) * 6).toFixed(1) + ' ' + (10 - Math.cos(a) * 6).toFixed(1));
+}
+
+/* ================= modals ================= */
+let modalKind = '', marketTab = 'seed';
+function openModal(kind, html) { modalKind = kind; $('modal').innerHTML = html; $('veil').hidden = false; paintIcons(); }
+function closeModal(force) { if (modalKind === 'register' && force !== true) return; $('veil').hidden = true; modalKind = ''; }
+$('veil').addEventListener('click', e => { if (e.target.id === 'veil') closeModal(); });
+function openMarket(tab) { marketTab = tab || (S.mode === 'pond' ? 'fry' : 'seed'); renderMarket(); }
+function priceToday(id) { return Math.round(ITEM[id].price * S.market[id]); }
+function renderMarket() {
+  let rows = '';
+  const money = '฿' + S.money.toLocaleString('th-TH');
+  if (marketTab === 'seed' || marketTab === 'fry') {
+    const list = marketTab === 'seed' ? CROPS : FISH, inv = marketTab === 'seed' ? S.seeds : S.fry, word = marketTab === 'seed' ? 'เมล็ด' : 'ลูกปลา';
+    for (const c of list.filter(c => c.lvl <= S.level)) {
+      rows += `<div class="row"><canvas data-icon="${c.id}" class="${isFish(c.id) ? 'fish' : ''}"></canvas><div class="meta"><b>${word}${c.name}</b><small>฿${c.cost} · ${isFish(c.id) ? 'โต' : 'สุก'}ใน ${c.time} วิ · ขายได้ราว ฿${c.price} · มีอยู่ ${inv[c.id] || 0}</small></div>
+        <div class="acts"><button class="btn" data-buy="${c.id}" data-n="1" ${S.money < c.cost ? 'disabled' : ''}>+1</button><button class="btn" data-buy="${c.id}" data-n="5" ${S.money < c.cost * 5 ? 'disabled' : ''}>+5</button><button class="btn" data-buy="${c.id}" data-n="10" ${S.money < c.cost * 10 ? 'disabled' : ''}>+10</button></div></div>`;
+    }
+    const next = list.find(c => c.lvl > S.level);
+    if (next) rows += `<p style="margin:6px 2px 0;color:var(--muted)">ถึงเลเวล ${next.lvl} เพื่อปลดล็อก${next.name}</p>`;
+    if (marketTab === 'fry' && !S.ponds.some(p => p.dug)) rows = `<p>ยังไม่มีบ่อปลา · ขุดบ่อแรกได้ที่แท็บ "ขยายฟาร์ม" (ต้องการ Lv ${POND[0].lvl})</p>` + rows;
+  } else if (marketTab === 'sell') {
+    const o = S.order;
+    if (o) {
+      const have = S.barn[o.id] || 0;
+      rows += `<div class="row order"><canvas data-icon="${o.id}" class="${isFish(o.id) ? 'fish' : ''}"></canvas><div class="meta"><b>ออเดอร์: ${o.who}</b><small>${o.done ? 'ส่งแล้ว · พรุ่งนี้มีออเดอร์ใหม่' : `ต้องการ${ITEM[o.id].name} ×${o.qty} (มี ${have}) · รางวัล ฿${o.reward} + ${o.xp} XP`}</small></div>
+        <div class="acts">${o.done ? '' : `<button class="btn" data-act="order" ${have < o.qty ? 'disabled' : ''}>ส่งของ</button>`}</div></div>`;
+    }
+    let any = false;
+    for (const id of Object.keys(ITEM)) {
+      const n = S.barn[id] || 0; if (!n) continue; any = true;
+      const m = S.market[id], price = priceToday(id), prev = S.prevMarket ? S.prevMarket[id] : 1;
+      const trend = m > prev + 0.02 ? '<span class="up">▲</span>' : m < prev - 0.02 ? '<span class="down">▼</span>' : '';
+      rows += `<div class="row"><canvas data-icon="${id}" class="${isFish(id) ? 'fish' : ''}"></canvas><div class="meta"><b>${ITEM[id].name} ×${n}</b><small>วันนี้ ฿${price} ${trend} · ราคาปกติ ฿${ITEM[id].price}</small></div>
+        <div class="acts"><button class="btn ghost" data-sell="${id}" data-n="1">ขาย 1</button><button class="btn" data-sell="${id}" data-n="${n}">ขายหมด ฿${(price * n).toLocaleString()}</button></div></div>`;
+    }
+    if (!any) rows += '<p>ยุ้งฉางยังว่าง · เก็บผักหรือช้อนปลาที่โตแล้ว แล้วกลับมาขายที่นี่</p>';
+    else rows += '<div style="display:flex;justify-content:flex-end"><button class="btn" data-act="sellall">ขายทั้งหมดในยุ้งฉาง</button></div>';
+  } else {
+    if (S.unlocked < MAX_PLOTS) {
+      const c1 = landCost(S.unlocked); let c4 = 0; for (let k = 0; k < Math.min(4, MAX_PLOTS - S.unlocked); k++) c4 += landCost(S.unlocked + k);
+      rows += `<div class="row"><canvas data-build="land" class="build"></canvas><div class="meta"><b>ขยายแปลงปลูก</b><small>มี ${S.unlocked}/${MAX_PLOTS} แปลง · แปลงถัดไป ฿${c1.toLocaleString()}</small></div>
+        <div class="acts"><button class="btn" data-act="land1" ${S.money < c1 ? 'disabled' : ''}>+1 แปลง</button><button class="btn" data-act="land4" ${S.money < c4 ? 'disabled' : ''}>+4 แปลง ฿${c4.toLocaleString()}</button></div></div>`;
+    } else rows += `<div class="row"><canvas data-build="land" class="build"></canvas><div class="meta"><b>แปลงปลูกเต็มพื้นที่แล้ว</b><small>${MAX_PLOTS} แปลง</small></div><div class="acts"></div></div>`;
+    POND.forEach((p, i) => {
+      const dug = S.ponds[i].dug, lock = S.level < p.lvl;
+      rows += `<div class="row"><canvas data-build="pond" class="build"></canvas><div class="meta"><b>บ่อปลา ${i + 1}</b><small>${dug ? 'ขุดแล้ว · เลี้ยงได้ ' + POND_CAP + ' ตัว' : lock ? 'ต้องการ Lv ' + p.lvl : 'เลี้ยงปลาได้ ' + POND_CAP + ' ตัว'}</small></div>
+        <div class="acts">${dug ? '' : `<button class="btn" data-act="pond" data-i="${i}" ${lock || S.money < p.cost ? 'disabled' : ''}>ขุดสระ ฿${p.cost.toLocaleString()}</button>`}</div></div>`;
+    });
+    UPGRADES.forEach(u => {
+      const has = S.up[u.id], lock = S.level < u.lvl;
+      rows += `<div class="row"><canvas data-build="${u.id}" class="build"></canvas><div class="meta"><b>${u.name}</b><small>${has ? 'ติดตั้งแล้ว' : lock ? 'ต้องการ Lv ' + u.lvl + ' · ' + u.note : u.note}</small></div>
+        <div class="acts">${has ? '' : `<button class="btn" data-act="up" data-id="${u.id}" ${lock || S.money < u.cost ? 'disabled' : ''}>ซื้อ ฿${u.cost.toLocaleString()}</button>`}</div></div>`;
+    });
+  }
+  const tabs = [['seed', 'เมล็ดพันธุ์'], ['fry', 'ลูกปลา'], ['sell', 'ขาย / ออเดอร์'], ['build', 'ขยายฟาร์ม']];
+  openModal('market', `<h2 id="mTitle">ตลาดหมู่บ้าน</h2>
+    <p>เงินของคุณ <b>${money}</b> · ราคาขายเปลี่ยนทุกเช้า รอขายวันที่ราคาขึ้นได้กำไรมากกว่า</p>
+    <div class="tabs">${tabs.map(([k, n]) => `<button class="btn ${marketTab === k ? 'on' : 'ghost'}" data-tab="${k}">${n}</button>`).join('')}</div>
+    <div class="rows">${rows}</div>
+    <footer><button class="btn ghost" data-act="reset">เริ่มฟาร์มใหม่</button><button class="btn" data-act="close">กลับไปที่ฟาร์ม</button></footer>`);
+}
+function buildIcon(kind, size) {
+  const [c, k] = mk(size, size);
+  withCtx(k, () => {
+    if (kind === 'land') { ctx.drawImage(tiles.soil, 4, 6, size - 8, size - 12); ctx.save(); ctx.translate(size / 2, size * 0.78); ctx.scale(size / 70, size / 70); DRAW.lettuce(0.8); ctx.restore(); }
+    else if (kind === 'pond' || kind === 'feeder') { const g = ctx.createRadialGradient(size * 0.4, size * 0.4, 2, size / 2, size / 2, size / 2); g.addColorStop(0, '#7fd0e0'); g.addColorStop(1, '#2a7a9a'); ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(size / 2, size / 2, size * 0.42, size * 0.3, 0, 0, 7); ctx.fill(); ctx.save(); ctx.translate(size / 2, size / 2); drawFish(kind === 'feeder' ? 'koi' : 'tilapia', size / 40, 0.2, 5); ctx.restore(); }
+    else { ctx.fillStyle = '#9aa6ad'; ctx.strokeStyle = OUT; ctx.lineWidth = 1.5; rr(size / 2 - 4, size * 0.45, 8, size * 0.45, 2); ctx.fill(); ctx.stroke(); ctx.strokeStyle = '#3d8fdc'; ctx.lineWidth = 1.5; for (let q = -2; q <= 2; q++) { ctx.beginPath(); ctx.moveTo(size / 2, size * 0.45); ctx.quadraticCurveTo(size / 2 + q * 5, size * 0.1, size / 2 + q * 9, size * 0.4); ctx.stroke(); } }
+  });
+  return c;
+}
+function paintIcons() {
+  $('modal').querySelectorAll('canvas[data-icon]').forEach(el => paintInto(el, itemIcon(el.dataset.icon, 40)));
+  $('modal').querySelectorAll('canvas[data-build]').forEach(el => paintInto(el, buildIcon(el.dataset.build, 40)));
+}
+function askLand() {
+  if (S.unlocked >= MAX_PLOTS) return;
+  const cost = landCost(S.unlocked);
+  openModal('land', `<h2 id="mTitle">ขยายแปลงปลูก</h2><p>ถางป่าเปิดแปลงใหม่ 1 แปลงในราคา <b>฿${cost.toLocaleString()}</b> (คุณมี ฿${S.money.toLocaleString('th-TH')})</p>
+    <footer><button class="btn ghost" data-act="close">ยังก่อน</button><button class="btn" data-act="land1" ${S.money < cost ? 'disabled' : ''}>ซื้อที่ดิน ฿${cost.toLocaleString()}</button></footer>`);
+}
+function askPond(i) {
+  const p = POND[i], lock = S.level < p.lvl;
+  openModal('pond', `<h2 id="mTitle">ขุดบ่อปลา ${i + 1}</h2><p>${lock ? 'ต้องถึงเลเวล ' + p.lvl + ' ก่อนจึงจะขุดบ่อนี้ได้' : 'ขุดสระเลี้ยงปลาได้ ' + POND_CAP + ' ตัว ราคา <b>฿' + p.cost.toLocaleString() + '</b> (คุณมี ฿' + S.money.toLocaleString('th-TH') + ')'}</p>
+    <footer><button class="btn ghost" data-act="close">ยังก่อน</button><button class="btn" data-act="pond" data-i="${i}" ${lock || S.money < p.cost ? 'disabled' : ''}>ขุดสระ ฿${p.cost.toLocaleString()}</button></footer>`);
+}
+function askReset() {
+  openModal('reset', `<h2 id="mTitle">เริ่มฟาร์มใหม่?</h2><p>เงิน เลเวล เมล็ด ผัก บ่อปลา และปลาทั้งหมดจะถูกล้าง เริ่มต้นใหม่ที่วันที่ 1</p>
+    <footer><button class="btn ghost" data-act="close">ไม่ล้าง</button><button class="btn" data-act="doreset">ล้างแล้วเริ่มใหม่</button></footer>`);
+}
+function buyLand(n) {
+  let bought = 0;
+  for (let k = 0; k < n && S.unlocked < MAX_PLOTS; k++) { const c = landCost(S.unlocked); if (S.money < c) break; S.money -= c; S.unlocked++; bought++; }
+  if (bought) toast('ได้แปลงใหม่ ' + bought + ' แปลง · ใช้จอบไถได้เลย');
+  return bought;
+}
+$('modal').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b || b.disabled) return;
+  if (b.dataset.tab) { marketTab = b.dataset.tab; renderMarket(); return; }
+  if (b.dataset.buy) {
+    const c = ITEM[b.dataset.buy], n = +b.dataset.n, inv = isFish(c.id) ? S.fry : S.seeds;
+    if (S.money >= c.cost * n) { S.money -= c.cost * n; inv[c.id] = (inv[c.id] || 0) + n; toast('ซื้อ' + (isFish(c.id) ? 'ลูกปลา' : 'เมล็ด') + c.name + ' ' + n + ' ' + (isFish(c.id) ? 'ตัว' : 'เมล็ด')); }
+    renderMarket(); renderTray(); hud(); return;
+  }
+  if (b.dataset.sell) {
+    const id = b.dataset.sell, n = Math.min(+b.dataset.n, S.barn[id] || 0), got = priceToday(id) * n;
+    S.barn[id] -= n; S.money += got; questEvent('earn', null, got); toast('ขาย' + ITEM[id].name + ' ' + n + ' ได้ ฿' + got.toLocaleString());
+    renderMarket(); hud(); save(); return;
+  }
+  const act = b.dataset.act;
+  if (act === 'close') closeModal();
+  if (act === 'sellall') { let got = 0; for (const id of Object.keys(S.barn)) { got += priceToday(id) * S.barn[id]; S.barn[id] = 0; } S.money += got; questEvent('earn', null, got); toast('ขายทั้งหมดได้ ฿' + got.toLocaleString()); renderMarket(); hud(); save(); }
+  if (act === 'order') { const o = S.order; if ((S.barn[o.id] || 0) >= o.qty) { S.barn[o.id] -= o.qty; S.money += o.reward; o.done = true; questEvent('order'); const r = BARN; gainXp(o.xp, r.x + r.w / 2, r.y + 80); toast('ส่งของให้' + o.who + 'แล้ว · ได้ ฿' + o.reward); } renderMarket(); hud(); save(); }
+  if (act === 'land1' || act === 'land4') { buyLand(act === 'land1' ? 1 : 4); hud(); save(); modalKind === 'market' ? renderMarket() : closeModal(); }
+  if (act === 'pond') {
+    const i = +b.dataset.i, p = POND[i];
+    if (!S.ponds[i].dug && S.level >= p.lvl && S.money >= p.cost) { S.money -= p.cost; S.ponds[i].dug = true; buildBackgrounds(); toast('ขุดบ่อปลา ' + (i + 1) + ' เสร็จแล้ว · ซื้อลูกปลามาปล่อยได้เลย'); const P = PONDS[i]; if (S.mode === 'pond') burst(P.cx, P.cy, '#8a5a35', 20); hud(); save(); }
+    modalKind === 'market' ? renderMarket() : closeModal();
+  }
+  if (act === 'up') { const u = UPGRADES.find(x => x.id === b.dataset.id); if (u && !S.up[u.id] && S.level >= u.lvl && S.money >= u.cost) { S.money -= u.cost; S.up[u.id] = true; toast('ติดตั้ง' + u.name + 'แล้ว'); hud(); save(); } renderMarket(); }
+  if (act === 'reset') askReset();
+  if (act === 'doreset') { S = newState(); hudCache = ''; resetFarmer(); ensureQuests(); renderQuests(); buildBackgrounds(); setMode('field'); hud(); save(); closeModal(); toast('ฟาร์มใหม่พร้อมแล้ว · เริ่มไถดินกันเลย'); }
+});
+document.querySelectorAll('.scenes button').forEach(b => b.addEventListener('click', () => setMode(b.dataset.scene)));
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeModal(); return; }
+  if (!$('veil').hidden) return;
+  const tools = SCENE_TOOLS[S.mode], k = +e.key;
+  if (k >= 1 && k <= tools.length) setTool(tools[k - 1]);
+  if (e.key === 'm' || e.key === 'M') openMarket();
+  if (e.key === 'p' || e.key === 'P') setMode(S.mode === 'field' ? 'pond' : 'field');
+});
+
+
+/* ================= daily quests ================= */
+const QTYPES = {
+  till:      { c: '#f7e2b8', i: '#d9a35a', tool: 'hoe',    t: n => 'ไถดิน ' + n + ' แปลง' },
+  plant:     { c: '#dff1c6', i: '#7cbf4a', tool: 'seed',   t: (n, it) => 'ปลูก' + it.name + ' ' + n + ' แปลง' },
+  water:     { c: '#d6ebfb', i: '#5aa7e6', tool: 'water',  t: n => 'รดน้ำ ' + n + ' ครั้ง' },
+  fert:      { c: '#f3ecc4', i: '#c9b257', tool: 'fert',   t: n => 'ใส่ปุ๋ย ' + n + ' แปลง' },
+  harvest:   { c: '#fde0d2', i: '#ee8a5f', tool: 'hand',   t: (n, it) => 'เก็บ' + it.name + ' ' + n + ' ผล' },
+  harvestAny:{ c: '#fbe3ef', i: '#e77fa8', tool: 'hand',   t: n => 'เก็บผลผลิตอะไรก็ได้ ' + n + ' ชิ้น' },
+  earn:      { c: '#fff1bf', i: '#f2c23a', tool: null,     t: n => 'ขายของให้ได้ ฿' + n.toLocaleString() },
+  order:     { c: '#efe2fb', i: '#a986d9', tool: null,     t: () => 'ส่งออเดอร์ให้ลูกค้า 1 ครั้ง' },
+  stock:     { c: '#d4f2f2', i: '#4fbcbc', tool: 'stock',  t: n => 'ปล่อยลูกปลา ' + n + ' ตัว' },
+  feed:      { c: '#e5f0d4', i: '#93b85a', tool: 'feed',   t: n => 'ให้อาหารปลา ' + n + ' ครั้ง' },
+  catch:     { c: '#d9e6fb', i: '#5c87d6', tool: 'net',    t: (n, it) => 'จับ' + it.name + ' ' + n + ' ตัว' },
+};
+const QUEST_DAILY = 5;
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const rint = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+function newQuest(avoid) {
+  const crops = CROPS.filter(c => c.lvl <= S.level), pond = S.ponds.some(p => p.dug), fish = FISH.filter(f => f.lvl <= S.level);
+  const pool = ['till', 'plant', 'plant', 'water', 'harvest', 'harvest', 'harvestAny', 'earn'];
+  if (S.level >= 2) pool.push('fert', 'order');
+  if (pond) pool.push('stock', 'feed', 'catch', 'catch');
+  let type;
+  for (let k = 0; k < 8; k++) { type = pick(pool); if (!avoid.includes(type)) break; }
+  const q = { type, id: null, n: 1, have: 0 };
+  let value;
+  switch (type) {
+    case 'till': q.n = rint(3, 8); value = q.n * 6; break;
+    case 'plant': { const c = pick(crops.slice(-4)); q.id = c.id; q.n = rint(2, 5); value = q.n * (c.cost + 6); break; }
+    case 'water': q.n = rint(5, 12); value = q.n * 4; break;
+    case 'fert': q.n = rint(2, 4); value = q.n * 9; break;
+    case 'harvest': { const c = pick(crops.slice(-4)); q.id = c.id; q.n = rint(2, 5); value = q.n * c.price * 0.7; break; }
+    case 'harvestAny': q.n = rint(5, 12); value = q.n * 10; break;
+    case 'earn': q.n = Math.round(rint(100, 120 + S.level * 120) / 10) * 10; value = q.n * 0.25; break;
+    case 'order': value = 40 + S.level * 15; break;
+    case 'stock': q.n = rint(2, 4); value = q.n * 12; break;
+    case 'feed': q.n = rint(2, 4); value = q.n * 8; break;
+    case 'catch': { const f = pick(fish.slice(-3)); q.id = f.id; q.n = rint(1, 3); value = q.n * f.price * 0.7; break; }
+  }
+  q.reward = Math.max(15, Math.round(value / 5) * 5);
+  q.xp = Math.max(5, Math.round(q.reward / 4));
+  if (Math.random() < 0.3) { const c = pick(crops.slice(-3)); q.seeds = { id: c.id, n: rint(2, 4) }; }
+  return q;
+}
+function ensureQuests() {
+  if (!Array.isArray(S.quests)) S.quests = [];
+  if (S.qDone == null) { S.qDone = 0; S.qBonus = false; }
+  while (S.quests.length < 3) S.quests.push(newQuest(S.quests.map(q => q.type)));
+}
+function questEvent(type, id, n) {
+  if (!S.quests) return;
+  n = n || 1;
+  let changed = false;
+  for (const q of S.quests) {
+    if (q.have >= q.n) continue;
+    const hit = (q.type === type && (!q.id || q.id === id)) || (q.type === 'harvestAny' && (type === 'harvest' || type === 'catch'));
+    if (!hit) continue;
+    q.have = Math.min(q.n, q.have + n); changed = true;
+    if (q.have >= q.n) toast('ภารกิจสำเร็จ! ' + QTYPES[q.type].t(q.n, ITEM[q.id] || {}) + ' · กดรับรางวัลได้เลย');
+  }
+  if (changed) renderQuests();
+}
+function claimQuest(k) {
+  const q = S.quests[k]; if (!q || q.have < q.n) return;
+  S.money += q.reward;
+  gainXp(q.xp, F.x, F.y - 70);
+  float(F.x, F.y - 90, '+฿' + q.reward, '#b07a10'); burst(F.x, F.y - 60, '#f6c63c', 18);
+  let msg = 'รับ ฿' + q.reward + ' + ' + q.xp + ' XP';
+  if (q.seeds) { S.seeds[q.seeds.id] = (S.seeds[q.seeds.id] || 0) + q.seeds.n; msg += ' + เมล็ด' + CROP[q.seeds.id].name + ' ×' + q.seeds.n; renderTray(); }
+  S.qDone++;
+  if (S.qDone >= QUEST_DAILY && !S.qBonus) {
+    S.qBonus = true;
+    const bonus = 80 + S.level * 60, c = pick(CROPS.filter(x => x.lvl <= S.level).slice(-3));
+    S.money += bonus; S.seeds[c.id] = (S.seeds[c.id] || 0) + 5; renderTray();
+    msg = 'ครบ ' + QUEST_DAILY + ' ภารกิจวันนี้! โบนัส ฿' + bonus + ' + เมล็ด' + c.name + ' ×5';
+    burst(F.x, F.y - 60, '#ef8fb0', 24);
+  }
+  toast(msg);
+  S.quests.splice(k, 1, newQuest(S.quests.map(x => x.type)));
+  renderQuests(); hud(); save();
+}
+function renderQuests() {
+  if (!S || !S.quests) return;
+  const row = $('qrow'); row.innerHTML = '';
+  S.quests.forEach((q, k) => {
+    const T = QTYPES[q.type], it = ITEM[q.id], done = q.have >= q.n;
+    const card = document.createElement('div');
+    card.className = 'qcard' + (done ? ' done' : '');
+    card.style.setProperty('--qbg', T.c); card.style.setProperty('--qic', T.i);
+    const ic = document.createElement('div'); ic.className = 'qic';
+    if (it) { const c2 = document.createElement('canvas'); paintInto(c2, itemIcon(q.id, 34)); ic.appendChild(c2); }
+    else if (T.tool) ic.innerHTML = '<svg viewBox="0 0 32 32">' + TOOL_SVG[T.tool] + '</svg>';
+    else ic.innerHTML = q.type === 'earn' ? '<svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="11" fill="#f6c63c" stroke="#2d2416" stroke-width="2"/><text x="16" y="21" text-anchor="middle" font-size="13" font-family="Itim, sans-serif" fill="#2d2416">฿</text></svg>' : '<svg viewBox="0 0 32 32"><path d="M6 6 H26 V27 H6 Z" fill="#fff6df" stroke="#2d2416" stroke-width="2"/><path d="M10 12 H22 M10 17 H22 M10 22 H17" stroke="#2d2416" stroke-width="2"/></svg>';
+    card.appendChild(ic);
+    const tx = document.createElement('div'); tx.className = 'qt';
+    tx.innerHTML = T.t(q.n, it || {}) + '<small>รางวัล ฿' + q.reward + ' · ' + q.xp + ' XP' + (q.seeds ? ' · เมล็ด' + CROP[q.seeds.id].name + ' ×' + q.seeds.n : '') + '</small>';
+    card.appendChild(tx);
+    if (done) { const b = document.createElement('button'); b.className = 'btn'; b.textContent = 'รับรางวัล ฿' + q.reward; b.addEventListener('click', () => claimQuest(k)); card.appendChild(b); }
+    else { const bar = document.createElement('div'); bar.className = 'qbar'; const shown = q.type === 'earn' ? '฿' + q.have.toLocaleString() + '/' + q.n.toLocaleString() : q.have + '/' + q.n; bar.innerHTML = '<span><i style="width:' + (q.have / q.n * 100) + '%"></i></span><em>' + shown + '</em>'; card.appendChild(bar); }
+    row.appendChild(card);
+  });
+  $('qstreak').innerHTML = Array.from({ length: QUEST_DAILY }, (_, k) => '<i class="' + (k < S.qDone ? 'on' : '') + '"></i>').join('') + (S.qBonus ? ' ได้โบนัสวันนี้แล้ว' : ' ครบ ' + QUEST_DAILY + ' รับโบนัส');
+}
+
+/* ================= customer account + coupons ================= */
+// Players register (name, phone, LINE) before playing; reaching milestone levels earns a
+// coupon issued by the server (app/api/public/garden/route.ts). Milestones come from the
+// server so the shop edits them in one place (lib/garden/config.ts).
+const SHOP_NAME = 'ZANA', API = 'https://gxycxjksrzjzxzgbblup.supabase.co/functions/v1/garden', PKEY = 'zana-garden-player';
+const DEFAULT_MILESTONES = [{ level: 3, label: 'ส่วนลด 5%' }, { level: 5, label: 'ส่วนลด 10%' }, { level: 8, label: 'ส่วนลด 15%' }];
+let PL = { token: null, name: '', milestones: [], demo: false };
+try { const s = JSON.parse(localStorage.getItem(PKEY)); if (s && s.token) PL = { ...PL, ...s }; } catch (_) {}
+const qp = k => { try { return new URLSearchParams(location.search).get(k) || ''; } catch (_) { return ''; } };
+const codeParam = qp('code').toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 20);
+const claiming = {}, waitNoted = {};
+function savePlayer() { try { localStorage.setItem(PKEY, JSON.stringify({ token: PL.token, name: PL.name, milestones: PL.milestones })); } catch (_) {} }
+const esc = v => String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const ms = () => (PL.milestones.length ? PL.milestones : DEFAULT_MILESTONES);
+async function api(action, data, keepalive) {
+  let res;
+  try { res = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, ...data }), keepalive: !!keepalive }); }
+  catch (_) { const e = new Error('เชื่อมต่ออินเทอร์เน็ตไม่ได้ ลองใหม่อีกครั้ง'); e.offline = true; throw e; }
+  let body = null; try { body = await res.json(); } catch (_) {}
+  if (!res.ok || !body) { const e = new Error((body && body.error) || 'ระบบเกมไม่ตอบสนอง ลองใหม่อีกครั้ง'); e.status = res.status; e.body = body; e.offline = !body; throw e; }
+  return body;
+}
+const progress = () => ({ level: S.level, harvested: S.harvested, playSeconds: Math.round(S.playSec || 0) });
+function applySnapshot(d) { if (d.milestones) PL.milestones = d.milestones; if (d.player) PL.name = d.player.name; savePlayer(); renderCouponChip(); }
+function lostSession() { PL.token = null; savePlayer(); openRegister('เซสชันหมดอายุ กรุณายืนยันเบอร์โทรอีกครั้ง ความคืบหน้าและคูปองยังอยู่ครบ'); }
+async function syncPlayer(keepalive) {
+  if (!PL.token) return;
+  try { applySnapshot(await api('sync', { token: PL.token, ...progress() }, keepalive)); checkMilestones(); }
+  catch (e) { if (e.status === 401) lostSession(); }
+}
+function onLevelUp() { if (PL.token) syncPlayer(); else if (PL.demo) { const m = ms().find(x => x.level === S.level); if (m) toast('ถึงเลเวล ' + m.level + ' แล้ว · ลงทะเบียนเพื่อรับ' + m.label); } }
+function checkMilestones() {
+  if (!PL.token) return;
+  for (const m of PL.milestones) {
+    if (m.reward || S.level < m.level || claiming[m.level]) continue;
+    const wait = Date.parse(m.unlockAt) - Date.now();
+    if (wait > 0) {
+      if (!waitNoted[m.level]) { waitNoted[m.level] = true; toast('ถึงเลเวล ' + m.level + ' แล้ว! ' + m.label + ' ปลดล็อกในอีก ' + Math.ceil(wait / 60000) + ' นาที เล่นต่อได้เลย'); }
+      continue;
+    }
+    claimMilestone(m.level);
+  }
+}
+async function claimMilestone(level) {
+  claiming[level] = true;
+  try {
+    const d = await api('claim', { token: PL.token, milestone: level, ...progress() });
+    applySnapshot(d);
+    const m = PL.milestones.find(x => x.level === level);
+    if (m && m.reward) showCouponWin(m);
+  } catch (e) {
+    if (e.status === 401) lostSession();
+  } finally { setTimeout(() => { claiming[level] = false; }, 5000); }
+}
+function renderCouponChip() {
+  const got = ms().filter(m => m.reward).length, next = ms().find(m => !m.reward);
+  $('couponNext').textContent = next ? '· Lv ' + next.level + ' → ' + next.label.replace('ส่วนลด ', '') : '· ครบ ' + got + ' ใบ';
+}
+const fmtTH = s => new Date(s).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
+function ladderHtml() { return '<div class="ladder">' + ms().map(m => '<span>' + esc(m.label) + '<small>ถึงเลเวล ' + m.level + '</small></span>').join('') + '</div>'; }
+function openRegister(note) {
+  openModal('register', `<h2 id="mTitle">ลงทะเบียนรับสิทธิ์เล่นฟรี</h2>
+    <p>ของแถมสำหรับลูกค้า ${SHOP_NAME} ปลูกผัก เลี้ยงปลา เก็บเลเวล แล้วรับคูปองส่วนลดสำหรับการซื้อครั้งถัดไป</p>
+    ${ladderHtml()}
+    ${note ? '<p style="color:var(--danger)">' + esc(note) + '</p>' : ''}
+    <form class="reg" id="regForm" novalidate>
+      <label class="f">รหัสเข้าใช้งาน (บนการ์ดในกล่อง หรือในแชทร้าน)<input id="rCode" maxlength="20" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="KF-XXXXXX" value="${esc(codeParam)}" style="text-transform:uppercase;letter-spacing:.06em"><small style="color:var(--muted);font-size:12px">เคยลงทะเบียนแล้ว? เว้นว่างไว้ แล้วกรอกเบอร์เดิมเพื่อเล่นต่อ</small></label>
+      <label class="f">ชื่อเล่น<input id="rName" maxlength="60" autocomplete="nickname" value="${esc(PL.name || '')}"></label>
+      <label class="f">เบอร์มือถือ (ใช้ยืนยันตอนรับส่วนลด)<input id="rPhone" inputmode="tel" autocomplete="tel" placeholder="0812345678" maxlength="16"></label>
+      <label class="f">LINE ID (ไม่บังคับ)<input id="rLine" maxlength="40" autocomplete="off"></label>
+      <label class="check"><input type="checkbox" id="rTerms"><span>ยินยอมให้ร้าน ${SHOP_NAME} เก็บชื่อ เบอร์โทร และ LINE ID เพื่อยืนยันตัวตนและมอบคูปองส่วนลดจากเกมนี้</span></label>
+      <label class="check"><input type="checkbox" id="rMkt"><span>รับข่าวสารและโปรโมชั่นจากร้านทาง LINE / SMS (ไม่บังคับ ยกเลิกได้ตลอด)</span></label>
+      <p class="err" id="rErr" role="alert"></p>
+      <button class="btn" type="submit" id="rGo">เริ่มเล่นเลย</button>
+      <div id="rDemo" hidden><p style="font-size:13px;color:var(--muted);margin:4px 0">ยังเชื่อมต่อระบบรับคูปองไม่ได้ เล่นต่อได้ แต่จะยังไม่ได้รับคูปองจนกว่าจะลงทะเบียน</p><button class="btn ghost" type="button" data-act="demo">เล่นโหมดทดลอง (ยังไม่รับคูปอง)</button></div>
+    </form>`);
+}
+$('modal').addEventListener('submit', async e => {
+  if (e.target.id !== 'regForm') return;
+  e.preventDefault();
+  const err = $('rErr'), go = $('rGo');
+  const name = $('rName').value.trim(), phone = $('rPhone').value.trim(), accessCode = $('rCode').value.trim().toUpperCase();
+  if (!name) { err.textContent = 'กรอกชื่อเล่นก่อน'; $('rName').focus(); return; }
+  if (!/^(0[689]\d{8}|\+?66[689]\d{8})$/.test(phone.replace(/[\s-]/g, ''))) { err.textContent = 'เบอร์มือถือต้องเป็น 10 หลัก เช่น 0812345678'; $('rPhone').focus(); return; }
+  if (!$('rTerms').checked) { err.textContent = 'ติ๊กยินยอมการใช้ข้อมูลก่อน เพื่อให้ร้านมอบคูปองให้ได้'; return; }
+  err.textContent = ''; go.disabled = true; go.textContent = 'กำลังลงทะเบียน…';
+  try {
+    const d = await api('register', { name, phone, line: $('rLine').value.trim(), accessCode, consentTerms: true, consentMarketing: $('rMkt').checked, ...progress() });
+    PL.token = d.token; PL.demo = false; applySnapshot(d);
+    closeModal(true);
+    toast(d.returning ? 'ยินดีต้อนรับกลับ ' + PL.name + '! คูปองเดิมยังอยู่ครบ' : 'สวัสดี ' + PL.name + '! เลือกจอบ แล้วแตะแปลงหญ้าเพื่อเริ่มปลูก');
+    syncPlayer();
+  } catch (x) {
+    err.textContent = x.message; go.disabled = false; go.textContent = 'เริ่มเล่นเลย';
+    if (x.body && x.body.needCode) $('rCode').focus();
+    if (x.offline || x.status >= 500 || x.status === 404 || x.status === 405) $('rDemo').hidden = false;
+  }
+});
+function showCouponWin(m) {
+  burst(F.x, F.y - 60, '#f6c63c', 30);
+  openModal('coupon', `<h2 id="mTitle">ยินดีด้วย! ได้คูปอง${esc(m.label)}</h2>
+    <p>เล่นถึงเลเวล ${m.level} แล้ว นี่คือของขวัญจากร้าน ${SHOP_NAME}</p>
+    <div class="coupon"><span class="code">${esc(m.reward.code)}</span><small>${esc(m.reward.label)} · ใช้ได้ถึง ${fmtTH(m.reward.expiresAt)} · ใช้ได้ 1 ครั้ง</small>
+      <button class="btn" data-act="copycode" data-code="${esc(m.reward.code)}">คัดลอกโค้ด</button></div>
+    <p style="margin-top:10px"><b>วิธีใช้:</b> ตอนสั่งซื้อครั้งถัดไป ส่งโค้ดนี้ให้แอดมินทางแชท หรือแสดงหน้าจอนี้ที่หน้าร้าน แคปหน้าจอเก็บไว้ได้เลย ดูคูปองทั้งหมดได้ที่ปุ่ม "คูปอง" ด้านบน</p>
+    <footer><span></span><button class="btn" data-act="close">เล่นต่อ</button></footer>`);
+}
+function openCoupons() {
+  const rows = ms().map(m => {
+    const r = m.reward, reached = S.level >= m.level;
+    let right = '', sub;
+    if (r) { sub = r.redeemedAt ? 'ใช้แล้วเมื่อ ' + fmtTH(r.redeemedAt) : 'ใช้ได้ถึง ' + fmtTH(r.expiresAt); right = `<button class="btn ghost" data-act="copycode" data-code="${esc(r.code)}">คัดลอก</button>`; }
+    else if (!PL.token) sub = 'ลงทะเบียนเพื่อรับคูปองนี้';
+    else if (reached && m.unlockAt && Date.parse(m.unlockAt) > Date.now()) sub = 'ปลดล็อกในอีก ' + Math.ceil((Date.parse(m.unlockAt) - Date.now()) / 60000) + ' นาที';
+    else sub = reached ? 'กำลังออกคูปอง…' : 'อีก ' + (m.level - S.level) + ' เลเวล';
+    return `<div class="cprow ${r ? '' : 'locked'}"><div class="lv">Lv<br>${m.level}</div><div class="meta"><b>${esc(m.label)}</b>${r ? '<span class="code">' + esc(r.code) + '</span><br>' : ''}<small>${sub}</small></div>${right}</div>`;
+  }).join('');
+  openModal('coupons', `<h2 id="mTitle">คูปองของฉัน</h2>
+    <p>${PL.token ? 'ผู้เล่น: <b>' + esc(PL.name) + '</b> · เลเวล ' + S.level : 'โหมดทดลอง · ยังไม่ได้ลงทะเบียน'}</p>
+    <div class="rows">${rows}</div>
+    <p style="margin-top:10px;font-size:13px;color:var(--muted)">ส่งโค้ดให้แอดมินทางแชทตอนสั่งซื้อ หรือแสดงที่หน้าร้าน คูปองแต่ละใบใช้ได้ 1 ครั้ง</p>
+    <footer>${PL.token ? '<button class="btn ghost" data-act="relogin">ไม่ใช่ฉัน / เปลี่ยนเบอร์</button>' : '<button class="btn" data-act="register">ลงทะเบียนรับคูปอง</button>'}<button class="btn" data-act="close">กลับไปที่ฟาร์ม</button></footer>`);
+  if (PL.token) syncPlayer();
+}
+$('couponChip').addEventListener('click', openCoupons);
+$('modal').addEventListener('click', async e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const act = b.dataset.act;
+  if (act === 'demo') { PL.demo = true; closeModal(true); toast('โหมดทดลอง · กดปุ่ม "คูปอง" ด้านบนเพื่อลงทะเบียนเมื่อพร้อม'); }
+  if (act === 'register') openRegister();
+  if (act === 'relogin') { PL.token = null; PL.milestones = []; savePlayer(); renderCouponChip(); openRegister(); }
+  if (act === 'copycode') {
+    const c = b.dataset.code;
+    try { await navigator.clipboard.writeText(c); b.textContent = 'คัดลอกแล้ว'; }
+    catch (_) { const el = b.parentElement.querySelector('.code'); if (el) { const r = document.createRange(); r.selectNodeContents(el); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); } b.textContent = 'กดค้างที่โค้ดเพื่อคัดลอก'; }
+  }
+});
+setInterval(() => { if (PL.token && !document.hidden) syncPlayer(); }, 60000);
+setInterval(checkMilestones, 20000);
+document.addEventListener('visibilitychange', () => { if (document.hidden && PL.token) syncPlayer(true); });
+
+/* ================= sizing / save / loop ================= */
+function resize() {
+  cssW = stage.clientWidth;
+  const portrait = cssW < 620;
+  cssH = Math.round(portrait ? Math.max(360, Math.min(window.innerHeight * 0.62, cssW * 1.35)) : Math.min(cssW * 0.6, window.innerHeight * 0.78));
+  cv.style.height = cssH + 'px';
+  dpr = Math.min(3, window.devicePixelRatio || 1); R = dpr;
+  cv.width = Math.round(cssW * dpr); cv.height = Math.round(cssH * dpr);
+  baseZ = portrait ? cssW / 560 : cssW / 1000;
+  cam.z = baseZ * zoomMul;
+  const nb = Math.max(1, Math.min(1.75, dpr * baseZ * 1.3));
+  if (!bg || Math.abs(nb - BGS) > 0.2) { BGS = nb; buildBackgrounds(); }
+  clampCam();
+}
+let resizeTimer = 0;
+window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(resize, 120); });
+function save() { try { S.farmer = { x: F.x, y: F.y }; localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (_) {} }
+function load() {
+  for (const key of [SAVE_KEY, 'zana-little-garden-v2']) {
+    try {
+      const s = JSON.parse(localStorage.getItem(key));
+      if (s && (s.v === 2 || s.v === 3)) { s.v = 3; if (!s.mode) s.mode = s.scene || 'field'; delete s.scene; return s; }
+    } catch (_) {}
+  }
+  return null;
+}
+setInterval(() => S && save(), 5000);
+document.addEventListener('visibilitychange', () => { if (document.hidden && S) save(); });
+
+let prev = 0;
+function frame(now) {
+  const dt = Math.min(0.25, (now - prev) / 1000 || 0); prev = now; t += dt;
+  if ($('veil').hidden || modalKind === 'market') update(dt);
+  updateCam(dt);
+  draw(dt); hud();
+  requestAnimationFrame(frame);
+}
+function start(data) {
+  S = (data && data.state) || load() || newState();
+  if (S.farmer) { F.x = S.farmer.x; F.y = S.farmer.y; }
+  resize();
+  cam.x = F.x - cssW / cam.z / 2; cam.y = F.y - cssH / cam.z / 2; clampCam();
+  setMode(S.mode || 'field', false); hud();
+  ensureQuests(); renderQuests(); renderCouponChip();
+  if (!PL.token && !PL.demo) openRegister(); else syncPlayer();
+  if (!data || !data.state) toast(S.harvested || S.day > 1 ? 'ยินดีต้อนรับกลับสู่ฟาร์ม · วันที่ ' + S.day : 'เลือกจอบ แล้วแตะแปลงหญ้า ชาวไร่จะเดินไปไถให้');
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { iconCache.clear(); renderTray(); });
+  requestAnimationFrame(t0 => { prev = t0; requestAnimationFrame(frame); });
+}
+window.claude?.hot?.snapshot?.(() => ({ state: S }));
+window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+
+})();
+</script>
+</body>
+</html>
