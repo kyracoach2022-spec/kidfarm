@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Zana Little Garden</title>
-<meta name="kidfarm-build" content="2026-10-10b">
+<meta name="kidfarm-build" content="2026-10-10c">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Itim&family=Mali:wght@400;600;700&display=swap">
@@ -2103,7 +2103,7 @@ const qp = k => { try { return new URLSearchParams(location.search).get(k) || ''
 const codeParam = qp('code').toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 20);
 const claiming = {}, waitNoted = {};
 let TIME_SCALE = 1;
-const BUILD = '2026-10-10b';
+const BUILD = '2026-10-10c';
 const isTeam = () => PL.token && (PL.role === 'gm' || PL.role === 'tester');
 function savePlayer() { try { localStorage.setItem(PKEY, JSON.stringify({ token: PL.token, name: PL.name, username: PL.username, role: PL.role, milestones: PL.milestones, lastUser: PL.username || PL.lastUser })); } catch (_) {} }
 const esc = v => String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -2199,7 +2199,7 @@ function openAuth(tab, note) {
   if (tab === 'login') {
     openModal('auth', `<h2 id="mTitle">เข้าสู่ระบบ KidFarm</h2><p>ใช้ USER ID และรหัสผ่านที่ตั้งไว้ เข้าได้ทุกเครื่อง ฟาร์มของคุณจะตามมาด้วย</p>${tabs}${noteHtml}
       <form class="reg" id="loginForm" novalidate>
-        <label class="f">USER ID<input id="lUser" maxlength="20" autocomplete="username" autocapitalize="none" spellcheck="false" value="${esc(PL.lastUser || '')}"></label>
+        <label class="f">USER ID<input id="lUser" maxlength="20" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="USER ID ที่ตั้งเอง (ครั้งแรกใช้แท็บผู้เล่นใหม่)" value="${esc(PL.lastUser || '')}"></label>
         ${pwField('lPass', 'รหัสผ่าน', 'current-password')}
         <p class="err" id="lErr" role="alert"></p>
         <button class="btn" type="submit" id="lGo">เข้าสู่ระบบ</button>
@@ -2256,6 +2256,8 @@ $('modal').addEventListener('submit', async e => {
   e.preventDefault();
   if (id === 'loginForm') {
     const err = $('lErr'), go = $('lGo'), username = $('lUser').value.trim(), password = $('lPass').value;
+    // A first-timer often types the shop code (KF-…) here: move them to the new-player form with it filled in.
+    if (/^KF-[A-Z0-9]{4,}$/i.test(username)) { openAuth('new'); $('rCode').value = username.toUpperCase(); $('rName').focus(); toast('รหัส KF- ใช้สมัครครั้งแรก · กรอกชื่อและเบอร์ต่อได้เลย'); return; }
     if (!username || !password) { err.textContent = 'กรอก USER ID และรหัสผ่าน'; return; }
     err.textContent = ''; go.disabled = true; go.textContent = 'กำลังเข้าสู่ระบบ…';
     try {
