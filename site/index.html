@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Zana Little Garden</title>
+<meta name="kidfarm-build" content="2026-10-10">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Itim&family=Mali:wght@400;600;700&display=swap">
@@ -2105,13 +2106,26 @@ const isTeam = () => PL.token && (PL.role === 'gm' || PL.role === 'tester');
 function savePlayer() { try { localStorage.setItem(PKEY, JSON.stringify({ token: PL.token, name: PL.name, username: PL.username, role: PL.role, milestones: PL.milestones, lastUser: PL.username || PL.lastUser })); } catch (_) {} }
 const esc = v => String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const ms = () => (PL.milestones.length ? PL.milestones : DEFAULT_MILESTONES);
+// The API is called through this site's own /api/garden (Netlify proxy in _redirects) so phones with
+// content blockers or networks that block supabase.co still work; the direct URL is the fallback.
+const API_PATHS = ['/api/garden', API];
+let apiPath = 0;
 async function api(action, data, keepalive) {
-  let res;
-  try { res = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, ...data }), keepalive: !!keepalive }); }
-  catch (_) { const e = new Error('เชื่อมต่ออินเทอร์เน็ตไม่ได้ ลองใหม่อีกครั้ง'); e.offline = true; throw e; }
-  let body = null; try { body = await res.json(); } catch (_) {}
-  if (!res.ok || !body) { const e = new Error((body && body.error) || 'ระบบเกมไม่ตอบสนอง ลองใหม่อีกครั้ง'); e.status = res.status; e.body = body; e.offline = !body; throw e; }
-  return body;
+  const payload = JSON.stringify({ action, ...data });
+  let lastErr = null;
+  for (let i = 0; i < API_PATHS.length; i++) {
+    const url = API_PATHS[(apiPath + i) % API_PATHS.length];
+    let res, body = null;
+    try { res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: !!keepalive }); }
+    catch (_) { lastErr = Object.assign(new Error('เชื่อมต่ออินเทอร์เน็ตไม่ได้ ลองใหม่อีกครั้ง'), { offline: true }); continue; }
+    try { body = await res.json(); } catch (_) {}
+    // A non-JSON reply is not the game API (proxy missing, captive portal, blocker page): try the next route.
+    if (!body) { lastErr = Object.assign(new Error(`ระบบเกมไม่ตอบสนอง ลองใหม่อีกครั้ง (รหัส ${res.status})`), { status: res.status, offline: true }); continue; }
+    apiPath = (apiPath + i) % API_PATHS.length;
+    if (!res.ok) { const e = new Error(body.error || body.message || body.msg || `ระบบเกมขัดข้อง (รหัส ${res.status})`); e.status = res.status; e.body = body; throw e; }
+    return body;
+  }
+  throw lastErr;
 }
 const progress = () => ({ level: S.level, harvested: S.harvested, playSeconds: Math.round(S.playSec || 0) });
 function cloudSave() { S.farmer = { x: F.x, y: F.y }; return JSON.parse(JSON.stringify(S)); }

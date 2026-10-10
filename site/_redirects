@@ -1,3 +1,5 @@
+# Game API through this domain (proxy) — avoids blockers on supabase.co
+/api/garden  https://gxycxjksrzjzxzgbblup.supabase.co/functions/v1/garden  200!
 # Short aliases (kept for old links)
 /play   /index.html   200
 /staff  /staff.html   200

@@ -144,11 +144,19 @@ const fmtDT = s => new Date(s).toLocaleString('th-TH', { day: 'numeric', month: 
 let PIN = '', DATA = null;
 try { PIN = sessionStorage.getItem('garden-staff-pin') || ''; } catch (_) {}
 
+// Same-origin proxy first (see _redirects), direct Supabase URL as fallback.
 async function call(body) {
-  const res = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'staff', pin: PIN, ...body }) });
-  let d = null; try { d = await res.json(); } catch (_) {}
-  if (!res.ok) { const e = new Error((d && d.error) || 'เชื่อมต่อระบบไม่ได้'); e.status = res.status; throw e; }
-  return d;
+  const payload = JSON.stringify({ action: 'staff', pin: PIN, ...body });
+  let lastErr = new Error('เชื่อมต่อระบบไม่ได้');
+  for (const url of ['/api/garden', API]) {
+    let res, d = null;
+    try { res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload }); } catch (_) { continue; }
+    try { d = await res.json(); } catch (_) {}
+    if (!d) { lastErr = new Error(`เชื่อมต่อระบบไม่ได้ (รหัส ${res.status})`); continue; }
+    if (!res.ok) { const e = new Error(d.error || d.message || d.msg || `ระบบขัดข้อง (รหัส ${res.status})`); e.status = res.status; throw e; }
+    return d;
+  }
+  throw lastErr;
 }
 function couponState(r) {
   if (r.redeemed_at) return ['ใช้แล้ว', 'gray'];
