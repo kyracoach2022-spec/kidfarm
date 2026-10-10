@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Zana Little Garden</title>
-<meta name="kidfarm-build" content="2026-10-10">
+<meta name="kidfarm-build" content="2026-10-10b">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Itim&family=Mali:wght@400;600;700&display=swap">
@@ -198,6 +198,7 @@ input, select, textarea, .code { -webkit-user-select: text; user-select: text; -
 .cprow .code { font-family: var(--display); font-size: 18px; letter-spacing: .05em; }
 .chip.cp { cursor: pointer; background: #fff1c7; font-size: 15px; }
 .chip.acct { background: #e6f2d8; }
+.chip.acct.warn { background: #ffe1d6; color: #a3341b; }
 .chip.test { background: #e9ddfb; }
 .pw { display: flex; gap: 6px; }
 .pw input { flex: 1; min-width: 0; }
@@ -2102,6 +2103,7 @@ const qp = k => { try { return new URLSearchParams(location.search).get(k) || ''
 const codeParam = qp('code').toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 20);
 const claiming = {}, waitNoted = {};
 let TIME_SCALE = 1;
+const BUILD = '2026-10-10b';
 const isTeam = () => PL.token && (PL.role === 'gm' || PL.role === 'tester');
 function savePlayer() { try { localStorage.setItem(PKEY, JSON.stringify({ token: PL.token, name: PL.name, username: PL.username, role: PL.role, milestones: PL.milestones, lastUser: PL.username || PL.lastUser })); } catch (_) {} }
 const esc = v => String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -2179,8 +2181,10 @@ function renderCouponChip() {
 }
 function renderAccountChips() {
   const a = $('acctChip'), tc = $('testChip');
-  a.hidden = !PL.token; tc.hidden = !isTeam();
-  if (PL.token) a.textContent = (PL.role === 'gm' ? 'GM · ' : PL.role === 'tester' ? 'ทีมงาน · ' : '') + (PL.username || PL.name || 'บัญชี');
+  a.hidden = !PL.token && !PL.demo; tc.hidden = !isTeam();
+  a.classList.toggle('warn', !PL.token);
+  if (!PL.token) a.textContent = '⚠ โหมดทดลอง · ไม่บันทึก กดเพื่อเข้าสู่ระบบ';
+  else a.textContent = (PL.role === 'gm' ? 'GM · ' : PL.role === 'tester' ? 'ทีมงาน · ' : '') + (PL.username || PL.name || 'บัญชี');
 }
 const fmtTH = s => new Date(s).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
 function ladderHtml() { return '<div class="ladder">' + ms().map(m => '<span>' + esc(m.label) + '<small>ถึงเลเวล ' + m.level + '</small></span>').join('') + '</div>'; }
@@ -2191,7 +2195,7 @@ function openAuth(tab, note) {
   tab = tab || (codeParam || !PL.lastUser ? 'new' : 'login');
   const tabs = `<div class="tabs" role="tablist"><button type="button" class="btn ${tab === 'login' ? 'on' : 'ghost'}" data-act="authtab" data-tab="login">เข้าสู่ระบบ</button><button type="button" class="btn ${tab === 'new' ? 'on' : 'ghost'}" data-act="authtab" data-tab="new">ผู้เล่นใหม่ (มีรหัสจากร้าน)</button></div>`;
   const noteHtml = note ? '<p style="color:var(--danger)">' + esc(note) + '</p>' : '';
-  const demo = `<div id="rDemo" hidden><p style="font-size:13px;color:var(--muted);margin:4px 0">ยังเชื่อมต่อระบบไม่ได้ เล่นต่อได้ แต่ความคืบหน้าจะไม่ถูกบันทึกเข้าบัญชีและยังไม่ได้คูปอง</p><button class="btn ghost" type="button" data-act="demo">เล่นโหมดทดลอง</button></div>`;
+  const demo = `<div id="rDemo" hidden><p style="font-size:13px;color:var(--muted);margin:4px 0">ยังเชื่อมต่อระบบไม่ได้ เล่นต่อได้ แต่<b>ความคืบหน้าจะอยู่แค่เครื่องนี้</b> ไม่ถูกบันทึกเข้าบัญชีและยังไม่ได้คูปอง <small>(build ${BUILD})</small></p><button class="btn ghost" type="button" data-act="demo">เล่นโหมดทดลอง</button></div>`;
   if (tab === 'login') {
     openModal('auth', `<h2 id="mTitle">เข้าสู่ระบบ KidFarm</h2><p>ใช้ USER ID และรหัสผ่านที่ตั้งไว้ เข้าได้ทุกเครื่อง ฟาร์มของคุณจะตามมาด้วย</p>${tabs}${noteHtml}
       <form class="reg" id="loginForm" novalidate>
@@ -2368,12 +2372,12 @@ function openCoupons() {
   if (PL.token) syncPlayer(false, false);
 }
 $('couponChip').addEventListener('click', openCoupons);
-$('acctChip').addEventListener('click', openAccount);
+$('acctChip').addEventListener('click', () => (PL.token ? openAccount() : openAuth()));
 $('testChip').addEventListener('click', openTestPanel);
 $('modal').addEventListener('click', async e => {
   const b = e.target.closest('button'); if (!b) return;
   const act = b.dataset.act;
-  if (act === 'demo') { PL.demo = true; closeModal(true); toast('โหมดทดลอง · กดปุ่ม "คูปอง" ด้านบนเพื่อเข้าสู่ระบบเมื่อพร้อม'); }
+  if (act === 'demo') { PL.demo = true; closeModal(true); renderAccountChips(); toast('โหมดทดลอง · กดปุ่ม "คูปอง" ด้านบนเพื่อเข้าสู่ระบบเมื่อพร้อม'); }
   if (act === 'authtab') openAuth(b.dataset.tab);
   if (act === 'signin') openAuth();
   if (act === 'account') openAccount();
